@@ -11,8 +11,8 @@
 
 #define NDX 100 //差分計算における計算領域一辺の分割数
 #define NDY 100 //差分計算における計算領域一辺の分割数
-#define NDZ 2
-#define N 20 //考慮する結晶方位の数＋１(MPF0.cppと比較して、この値を大きくしている)
+#define NDZ 100
+#define N 10 //考慮する結晶方位の数＋１(MPF0.cppと比較して、この値を大きくしている)
 #define BEGIN 1
 #define UTAG 2
 #define DTAG 3
@@ -63,7 +63,7 @@ double t, r0, r;
 //******* メインプログラム ******************************************
 int main(int argc, char *argv[])
 {
-    nstep = 1000;
+    nstep = 100;
     dtime = 5.0;
     temp = 1000.0;
     L = 2000.0;
@@ -135,25 +135,8 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        // double phi[N][NDX][NDY][NDZ];
-        // double intphi[NDX][NDY][NDZ];
-
         double(*phi)[N][NDX][NDY][NDZ] = malloc(sizeof(*phi));
         double(*intphi)[NDX][NDY][NDZ] = malloc(sizeof(*intphi));
-
-        // double ****phi = (double ****)malloc(N * sizeof(double ***));
-        // for (ii = 0; ii < nm; ii++)
-        // {
-        //     phi[ii] = (double ***)malloc(NDX * sizeof(double **));
-        //     for (i = 0; i <= ndmx; i++)
-        //     {
-        //         phi[ii][i] = (double **)malloc(NDY * sizeof(double *));
-        //         for (j = 0; j <= ndmy; j++)
-        //         {
-        //             phi[ii][i][j] = (double *)malloc(NDZ * sizeof(double));
-        //         }
-        //     }
-        // }
 
         for (i = 0; i <= ndmx; i++)
         {
@@ -291,11 +274,6 @@ int main(int argc, char *argv[])
     /************************* workers code **********************************/
     if (taskid != MASTER)
     {
-        // double phi[N][rows + 2][NDY][NDZ], phi2[N][rows + 2][NDY][NDZ];
-        // int phiNum[rows + 2][NDY][NDZ];
-        // int phiIdx[N + 1][rows + 2][NDY][NDZ];
-        // double intphi[rows + 2][NDY][NDZ];
-
         double(*phi)[N][rows + 2][NDY][NDZ] = malloc(sizeof(*phi));
         double(*phi2)[N][rows + 2][NDY][NDZ] = malloc(sizeof(*phi2));
         int(*phiNum)[rows + 2][NDY][NDZ] = malloc(sizeof(*phiNum));
@@ -323,7 +301,8 @@ int main(int argc, char *argv[])
             //// send up boundaries of phase fields
             for (ii = 1; ii <= nm; ii++)
             {
-                MPI_Send(&(*phi)[ii][1], NDY * NDZ, MPI_DOUBLE, up, DTAG, MPI_COMM_WORLD);
+                MPI_Send(&(*phi)[ii][1][0], NDY * NDZ / 2, MPI_DOUBLE, up, DTAG, MPI_COMM_WORLD);
+                MPI_Send(&(*phi)[ii][1][NDY / 2], NDY * NDZ / 2, MPI_DOUBLE, up, DTAG, MPI_COMM_WORLD);
             }
 
             source = up;
@@ -331,7 +310,9 @@ int main(int argc, char *argv[])
             //// receive up boundaries of phase fields
             for (ii = 1; ii <= nm; ii++)
             {
-                MPI_Recv(&(*phi)[ii][0], NDY * NDZ, MPI_DOUBLE, source,
+                MPI_Recv(&(*phi)[ii][0][0], NDY * NDZ / 2, MPI_DOUBLE, source,
+                         msgtype, MPI_COMM_WORLD, &status);
+                MPI_Recv(&(*phi)[ii][0][NDY / 2], NDY * NDZ / 2, MPI_DOUBLE, source,
                          msgtype, MPI_COMM_WORLD, &status);
             }
         }
@@ -340,7 +321,9 @@ int main(int argc, char *argv[])
             //// send down boundaries of phase fields
             for (ii = 1; ii <= nm; ii++)
             {
-                MPI_Send(&(*phi)[ii][rows], NDY * NDZ, MPI_DOUBLE, down,
+                MPI_Send(&(*phi)[ii][rows][0], NDY * NDZ / 2, MPI_DOUBLE, down,
+                         UTAG, MPI_COMM_WORLD);
+                MPI_Send(&(*phi)[ii][rows][NDY / 2], NDY * NDZ / 2, MPI_DOUBLE, down,
                          UTAG, MPI_COMM_WORLD);
             }
 
@@ -349,7 +332,9 @@ int main(int argc, char *argv[])
             //// receive down boundaries of phase fields
             for (ii = 1; ii <= nm; ii++)
             {
-                MPI_Recv(&(*phi)[ii][rows + 1], NDY * NDZ, MPI_DOUBLE, source, msgtype,
+                MPI_Recv(&(*phi)[ii][rows + 1][0], NDY * NDZ / 2, MPI_DOUBLE, source, msgtype,
+                         MPI_COMM_WORLD, &status);
+                MPI_Recv(&(*phi)[ii][rows + 1][NDY / 2], NDY * NDZ / 2, MPI_DOUBLE, source, msgtype,
                          MPI_COMM_WORLD, &status);
             }
         }
