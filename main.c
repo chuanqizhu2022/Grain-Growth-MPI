@@ -12,7 +12,7 @@
 #define NDX 100 //差分計算における計算領域一辺の分割数
 #define NDY 100 //差分計算における計算領域一辺の分割数
 #define NDZ 2
-#define N 10 //考慮する結晶方位の数＋１(MPF0.cppと比較して、この値を大きくしている)
+#define N 20 //考慮する結晶方位の数＋１(MPF0.cppと比較して、この値を大きくしている)
 #define BEGIN 1
 #define UTAG 2
 #define DTAG 3
@@ -135,8 +135,25 @@ int main(int argc, char *argv[])
             exit(1);
         }
 
-        double phi[N][NDX][NDY][NDZ];
-        double intphi[NDX][NDY][NDZ];
+        // double phi[N][NDX][NDY][NDZ];
+        // double intphi[NDX][NDY][NDZ];
+
+        double(*phi)[N][NDX][NDY][NDZ] = malloc(sizeof(*phi));
+        double(*intphi)[NDX][NDY][NDZ] = malloc(sizeof(*intphi));
+
+        // double ****phi = (double ****)malloc(N * sizeof(double ***));
+        // for (ii = 0; ii < nm; ii++)
+        // {
+        //     phi[ii] = (double ***)malloc(NDX * sizeof(double **));
+        //     for (i = 0; i <= ndmx; i++)
+        //     {
+        //         phi[ii][i] = (double **)malloc(NDY * sizeof(double *));
+        //         for (j = 0; j <= ndmy; j++)
+        //         {
+        //             phi[ii][i][j] = (double *)malloc(NDZ * sizeof(double));
+        //         }
+        //     }
+        // }
 
         for (i = 0; i <= ndmx; i++)
         {
@@ -146,9 +163,9 @@ int main(int argc, char *argv[])
                 {
                     for (ii = 1; ii <= nm - 1; ii++)
                     {
-                        phi[ii][i][j][k] = 0.0;
+                        (*phi)[ii][i][j][k] = 0.0;
                     }
-                    phi[nm][i][j][k] = 1.0; // nm番目のフェーズフィールドを１に初期化
+                    (*phi)[nm][i][j][k] = 1.0; // nm番目のフェーズフィールドを１に初期化
                 }
             }
         }
@@ -170,8 +187,8 @@ int main(int argc, char *argv[])
                         r = sqrt(((i - x11)) * (i - x11) + (j - y11) * (j - y11) + (k - z11) * (k - z11));
                         if (r <= r0)
                         {
-                            phi[ii][i][j][k] = 1.0;
-                            phi[nm][i][j][k] = 0.0;
+                            (*phi)[ii][i][j][k] = 1.0;
+                            (*phi)[nm][i][j][k] = 0.0;
                         } //初期核位置のフェーズフィールドを設定
                     }
                 }
@@ -199,7 +216,7 @@ int main(int argc, char *argv[])
             //// send phase fields
             for (ii = 1; ii <= nm; ii++)
             {
-                MPI_Send(&phi[ii][offset], rows * NDY * NDZ, MPI_DOUBLE, dest, BEGIN, MPI_COMM_WORLD);
+                MPI_Send(&(*phi)[ii][offset], rows * NDY * NDZ, MPI_DOUBLE, dest, BEGIN, MPI_COMM_WORLD);
             }
 
             offset = offset + rows;
@@ -214,7 +231,7 @@ int main(int argc, char *argv[])
                      &status);
             MPI_Recv(&rows, 1, MPI_INT, source, msgtype, MPI_COMM_WORLD, &status);
             //// receive phase fields
-            MPI_Recv(&intphi[offset], rows * NDY * NDZ, MPI_DOUBLE, source,
+            MPI_Recv(&(*intphi)[offset], rows * NDY * NDZ, MPI_DOUBLE, source,
                      msgtype, MPI_COMM_WORLD, &status);
         }
 
@@ -257,7 +274,7 @@ int main(int argc, char *argv[])
                 for (i = 0; i <= ndmx; i++)
                 {
                     // fprintf(streamc0, "%e\n", phi[1][i][j][k]);
-                    fprintf(stream, "%e\n", intphi[i][j][k]);
+                    fprintf(stream, "%e\n", (*intphi)[i][j][k]);
                 }
             }
         }
@@ -274,10 +291,16 @@ int main(int argc, char *argv[])
     /************************* workers code **********************************/
     if (taskid != MASTER)
     {
-        double phi[N][rows + 2][NDY][NDZ], phi2[N][rows + 2][NDY][NDZ];
-        int phiNum[rows + 2][NDY][NDZ];
-        int phiIdx[N + 1][rows + 2][NDY][NDZ];
-        double intphi[rows + 2][NDY][NDZ];
+        // double phi[N][rows + 2][NDY][NDZ], phi2[N][rows + 2][NDY][NDZ];
+        // int phiNum[rows + 2][NDY][NDZ];
+        // int phiIdx[N + 1][rows + 2][NDY][NDZ];
+        // double intphi[rows + 2][NDY][NDZ];
+
+        double(*phi)[N][rows + 2][NDY][NDZ] = malloc(sizeof(*phi));
+        double(*phi2)[N][rows + 2][NDY][NDZ] = malloc(sizeof(*phi2));
+        int(*phiNum)[rows + 2][NDY][NDZ] = malloc(sizeof(*phiNum));
+        int(*phiIdx)[N + 1][rows + 2][NDY][NDZ] = malloc(sizeof(*phiIdx));
+        double(*intphi)[rows + 2][NDY][NDZ] = malloc(sizeof(*intphi));
 
         // Receive from master
         source = MASTER;
@@ -289,7 +312,7 @@ int main(int argc, char *argv[])
         //// receive phase fields
         for (ii = 1; ii <= nm; ii++)
         {
-            MPI_Recv(&phi[ii][1], rows * NDY * NDZ, MPI_DOUBLE, source, msgtype, MPI_COMM_WORLD, &status);
+            MPI_Recv(&(*phi)[ii][1], rows * NDY * NDZ, MPI_DOUBLE, source, msgtype, MPI_COMM_WORLD, &status);
         }
 
     start:;
@@ -300,7 +323,7 @@ int main(int argc, char *argv[])
             //// send up boundaries of phase fields
             for (ii = 1; ii <= nm; ii++)
             {
-                MPI_Send(&phi[ii][1], NDY * NDZ, MPI_DOUBLE, up, DTAG, MPI_COMM_WORLD);
+                MPI_Send(&(*phi)[ii][1], NDY * NDZ, MPI_DOUBLE, up, DTAG, MPI_COMM_WORLD);
             }
 
             source = up;
@@ -308,7 +331,7 @@ int main(int argc, char *argv[])
             //// receive up boundaries of phase fields
             for (ii = 1; ii <= nm; ii++)
             {
-                MPI_Recv(&phi[ii][0], NDY * NDZ, MPI_DOUBLE, source,
+                MPI_Recv(&(*phi)[ii][0], NDY * NDZ, MPI_DOUBLE, source,
                          msgtype, MPI_COMM_WORLD, &status);
             }
         }
@@ -317,7 +340,7 @@ int main(int argc, char *argv[])
             //// send down boundaries of phase fields
             for (ii = 1; ii <= nm; ii++)
             {
-                MPI_Send(&phi[ii][rows], NDY * NDZ, MPI_DOUBLE, down,
+                MPI_Send(&(*phi)[ii][rows], NDY * NDZ, MPI_DOUBLE, down,
                          UTAG, MPI_COMM_WORLD);
             }
 
@@ -326,7 +349,7 @@ int main(int argc, char *argv[])
             //// receive down boundaries of phase fields
             for (ii = 1; ii <= nm; ii++)
             {
-                MPI_Recv(&phi[ii][rows + 1], NDY * NDZ, MPI_DOUBLE, source, msgtype,
+                MPI_Recv(&(*phi)[ii][rows + 1], NDY * NDZ, MPI_DOUBLE, source, msgtype,
                          MPI_COMM_WORLD, &status);
             }
         }
@@ -376,20 +399,20 @@ int main(int argc, char *argv[])
                     phinum = 0;
                     for (ii = 1; ii <= nm; ii++)
                     {
-                        if ((phi[ii][i][j][k] > 0.0) ||
-                            ((phi[ii][i][j][k] == 0.0) && (phi[ii][ip][j][k] > 0.0) ||
-                             (phi[ii][im][j][k] > 0.0) ||
-                             (phi[ii][i][jp][k] > 0.0) ||
-                             (phi[ii][i][jm][k] > 0.0) ||
-                             (phi[ii][i][j][kp] > 0.0) ||
-                             (phi[ii][i][j][km] > 0.0)))
+                        if (((*phi)[ii][i][j][k] > 0.0) ||
+                            (((*phi)[ii][i][j][k] == 0.0) && ((*phi)[ii][ip][j][k] > 0.0) ||
+                             ((*phi)[ii][im][j][k] > 0.0) ||
+                             ((*phi)[ii][i][jp][k] > 0.0) ||
+                             ((*phi)[ii][i][jm][k] > 0.0) ||
+                             ((*phi)[ii][i][j][kp] > 0.0) ||
+                             ((*phi)[ii][i][j][km] > 0.0)))
                         {
                             phinum++;
-                            phiIdx[phinum][i][j][k] = ii;
+                            (*phiIdx)[phinum][i][j][k] = ii;
                             // printf("%d  ", n00);
                         }
                     }
-                    phiNum[i][j][k] = phinum;
+                    (*phiNum)[i][j][k] = phinum;
                 }
             }
         }
@@ -432,30 +455,30 @@ int main(int argc, char *argv[])
                         km = ndmz;
                     }
 
-                    for (n1 = 1; n1 <= phiNum[i][j][k]; n1++)
+                    for (n1 = 1; n1 <= (*phiNum)[i][j][k]; n1++)
                     {
-                        ii = phiIdx[n1][i][j][k];
+                        ii = (*phiIdx)[n1][i][j][k];
                         pddtt = 0.0;
-                        for (n2 = 1; n2 <= phiNum[i][j][k]; n2++)
+                        for (n2 = 1; n2 <= (*phiNum)[i][j][k]; n2++)
                         {
-                            jj = phiIdx[n2][i][j][k];
+                            jj = (*phiIdx)[n2][i][j][k];
                             sum1 = 0.0;
-                            for (n3 = 1; n3 <= phiNum[i][j][k]; n3++)
+                            for (n3 = 1; n3 <= (*phiNum)[i][j][k]; n3++)
                             {
-                                kk = phiIdx[n3][i][j][k];
-                                sum1 += 0.5 * (aij[ii][kk] - aij[jj][kk]) * (phi[kk][ip][j][k] + phi[kk][im][j][k] + phi[kk][i][jp][k] + phi[kk][i][jm][k] + phi[kk][i][j][kp] + phi[kk][i][j][km] - 6.0 * phi[kk][i][j][k]) + (wij[ii][kk] - wij[jj][kk]) * phi[kk][i][j][k]; //[式(4.31)の一部]
+                                kk = (*phiIdx)[n3][i][j][k];
+                                sum1 += 0.5 * (aij[ii][kk] - aij[jj][kk]) * ((*phi)[kk][ip][j][k] + (*phi)[kk][im][j][k] + (*phi)[kk][i][jp][k] + (*phi)[kk][i][jm][k] + (*phi)[kk][i][j][kp] + (*phi)[kk][i][j][km] - 6.0 * (*phi)[kk][i][j][k]) + (wij[ii][kk] - wij[jj][kk]) * (*phi)[kk][i][j][k]; //[式(4.31)の一部]
                             }
-                            pddtt += -2.0 * mij[ii][jj] / (double)(phiNum[i][j][k]) * (sum1 - 8.0 / PI * fij[ii][jj] * sqrt(phi[ii][i][j][k] * phi[jj][i][j][k]));
+                            pddtt += -2.0 * mij[ii][jj] / (double)((*phiNum)[i][j][k]) * (sum1 - 8.0 / PI * fij[ii][jj] * sqrt((*phi)[ii][i][j][k] * (*phi)[jj][i][j][k]));
                             //フェーズフィールドの発展方程式[式(4.31)]
                         }
-                        phi2[ii][i][j][k] = phi[ii][i][j][k] + pddtt * dtime; //フェーズフィールドの時間発展（陽解法）
-                        if (phi2[ii][i][j][k] >= 1.0)
+                        (*phi2)[ii][i][j][k] = (*phi)[ii][i][j][k] + pddtt * dtime; //フェーズフィールドの時間発展（陽解法）
+                        if ((*phi2)[ii][i][j][k] >= 1.0)
                         {
-                            phi2[ii][i][j][k] = 1.0;
+                            (*phi2)[ii][i][j][k] = 1.0;
                         } //フェーズフィールドの変域補正
-                        if (phi2[ii][i][j][k] <= 0.0)
+                        if ((*phi2)[ii][i][j][k] <= 0.0)
                         {
-                            phi2[ii][i][j][k] = 0.0;
+                            (*phi2)[ii][i][j][k] = 0.0;
                         }
                     }
                 } // k
@@ -470,7 +493,7 @@ int main(int argc, char *argv[])
                 {
                     for (k = 0; k <= ndmz; k++)
                     {
-                        phi[ii][i][j][k] = phi2[ii][i][j][k];
+                        (*phi)[ii][i][j][k] = (*phi2)[ii][i][j][k];
                     }
                 }
             }
@@ -486,11 +509,11 @@ int main(int argc, char *argv[])
                     sum1 = 0.0;
                     for (ii = 1; ii <= nm; ii++)
                     {
-                        sum1 += phi[ii][i][j][k];
+                        sum1 += (*phi)[ii][i][j][k];
                     }
                     for (ii = 1; ii <= nm; ii++)
                     {
-                        phi[ii][i][j][k] = phi[ii][i][j][k] / sum1;
+                        (*phi)[ii][i][j][k] = (*phi)[ii][i][j][k] / sum1;
                     }
                 }
             }
@@ -511,7 +534,7 @@ int main(int argc, char *argv[])
                 {
                     for (ii = 1; ii <= nm; ii++)
                     {
-                        intphi[i][j][k] += phi[ii][i][j][k] * phi[ii][i][j][k];
+                        (*intphi)[i][j][k] += (*phi)[ii][i][j][k] * (*phi)[ii][i][j][k];
                     }
                 }
             }
@@ -520,7 +543,7 @@ int main(int argc, char *argv[])
         MPI_Send(&offset, 1, MPI_INT, MASTER, DONE, MPI_COMM_WORLD);
         MPI_Send(&rows, 1, MPI_INT, MASTER, DONE, MPI_COMM_WORLD);
         //// send phase fields
-        MPI_Send(&intphi[1], rows * NDY * NDZ, MPI_DOUBLE, MASTER, DONE,
+        MPI_Send(&(*intphi)[1], rows * NDY * NDZ, MPI_DOUBLE, MASTER, DONE,
                  MPI_COMM_WORLD);
         MPI_Finalize();
     }
