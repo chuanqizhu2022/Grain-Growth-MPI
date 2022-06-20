@@ -11,7 +11,7 @@
 
 #define NDX 100 //差分計算における計算領域一辺の分割数
 #define NDY 100 //差分計算における計算領域一辺の分割数
-#define NDZ 100
+#define NDZ 2
 #define N 10 //考慮する結晶方位の数＋１(MPF0.cppと比較して、この値を大きくしている)
 #define BEGIN 1
 #define UTAG 2
@@ -63,7 +63,7 @@ double t, r0, r;
 //******* メインプログラム ******************************************
 int main(int argc, char *argv[])
 {
-    nstep = 100;
+    nstep = 5000;
     dtime = 5.0;
     temp = 1000.0;
     L = 2000.0;
@@ -296,6 +296,7 @@ int main(int argc, char *argv[])
     start:;
 
         // Communicate with neighor workers before computation
+        // (The size of each message should be limited under 8500 floating point number for Mac M1 chip)
         if (up != NONE)
         {
             //// send up boundaries of phase fields
