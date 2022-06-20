@@ -1,0 +1,97 @@
+double ****phi, ***intphi;
+
+        phi = new double ***[N];
+        for (ii = 0; ii <= nm; ii++)
+        {
+            phi[ii] = new double **[NDX];
+            for (i = 0; i <= ndmx; i++)
+            {
+                phi[ii][i] = new double *[NDY];
+                for (j = 0; j <= ndmy; j++)
+                {
+                    phi[ii][i][j] = new double[NDZ];
+                }
+            }
+        }
+
+        intphi = new double **[NDX];
+        for (i = 0; i <= ndmx; i++)
+        {
+            intphi[i] = new double *[NDY];
+            for (j = 0; j <= ndmy; j++)
+            {
+                intphi[i][j] = new double[NDZ];
+            }
+        }
+
+        for (i = 0; i <= ndmx; i++)
+        {
+            for (j = 0; j <= ndmy; j++)
+            {
+                for (k = 0; k <= ndmz; k++)
+                {
+                    for (ii = 1; ii <= nm - 1; ii++)
+                    {
+                        phi[ii][i][j][k] = 0.0;
+                    }
+                    phi[nm][i][j][k] = 1.0; // nm番目のフェーズフィールドを１に初期化
+                }
+            }
+        }
+
+        double ****phi, ****phi2;
+        int ***phiNum, ****phiIdx;
+        double ***intphi;
+
+        phi = new double ***[N];
+        phi2 = new double ***[N];
+        for (ii = 0; ii <= nm; ii++)
+        {
+            phi[ii] = new double **[rows + 2];
+            phi2[ii] = new double **[rows + 2];
+            for (i = 0; i <= rows + 1; i++)
+            {
+                phi[ii][i] = new double *[NDY];
+                phi2[ii][i] = new double *[NDY];
+                for (j = 0; j <= ndmy; j++)
+                {
+                    phi[ii][i][j] = new double[NDZ];
+                    phi2[ii][i][j] = new double[NDZ];
+                }
+            }
+        }
+
+        phiNum = new int **[rows + 2];
+        for (i = 0; i <= rows + 1; i++)
+        {
+            phiNum[i] = new int *[NDY];
+
+            for (j = 0; j <= ndmy; j++)
+            {
+                phiNum[i][j] = new int[NDZ];
+            }
+        }
+
+        phiIdx = new int ***[N + 1];
+        for (ii = 0; ii <= N; ii++)
+        {
+            phiIdx[ii] = new int **[rows + 2];
+            for (i = 0; i <= rows + 1; i++)
+            {
+                phiIdx[ii][i] = new int *[NDY];
+                for (j = 0; j <= ndmy; j++)
+                {
+                    phiIdx[ii][i][j] = new int[NDZ];
+                }
+            }
+        }
+
+        intphi = new double **[rows + 2];
+        for (i = 0; i <= rows + 1; i++)
+        {
+            intphi[i] = new double *[NDY];
+            for (j = 0; j <= ndmy; j++)
+            {
+                intphi[i][j] = new double[NDZ];
+            }
+        }
