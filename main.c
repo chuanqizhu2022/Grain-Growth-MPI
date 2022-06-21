@@ -52,7 +52,10 @@ double temp;             //温度
 double sum1, sum2, sum3; //各種の和の作業変数
 double pddtt;            //フェーズフィールドの時間変化率
 double phidxii, phidyii, phidzii, phiabsii;
-double nxii, nyii, nzii, alii, al111, alm111, al1m11, al11m1;
+double nxii, nyii, nzii, alii;
+double al111, alm111, al1m11, al11m1;
+double alm511, al1m51, al11m5;
+double al511, al15m1, al1m15, al51m1, al151, alm115, al5m11, alm151, al115;
 double miijj;
 
 double gamma0; //粒界エネルギ密度
@@ -67,7 +70,7 @@ double t, r0, r;
 int main(int argc, char *argv[])
 {
     double min();
-    nstep = 600;
+    nstep = 1200;
     dtime = 5.0;
     temp = 1000.0;
     L = 2000.0;
@@ -450,61 +453,77 @@ int main(int argc, char *argv[])
                                 al1m11 = acos(fabs(nxii - nyii + nzii) / sqrt(3.0));
                                 al11m1 = acos(fabs(nxii + nyii - nzii) / sqrt(3.0));
 
-                                double arr[4];
+                                alm511 = acos(fabs(-5.0 * nxii + nyii + nzii) / sqrt(27.0));
+                                al1m51 = acos(fabs(nxii - 5.0 * nyii + nzii) / sqrt(27.0));
+                                al11m5 = acos(fabs(nxii + nyii - 5.0 * nzii) / sqrt(27.0));
+
+                                al511 = acos(fabs(5.0 * nxii + nyii + nzii) / sqrt(27.0));
+                                al15m1 = acos(fabs(nxii + 5.0 * nyii - nzii) / sqrt(27.0));
+                                al1m15 = acos(fabs(nxii - nyii + 5.0 * nzii) / sqrt(27.0));
+                                al51m1 = acos(fabs(5.0 * nxii + nyii - nzii) / sqrt(27.0));
+                                al151 = acos(fabs(nxii + 5.0 * nyii + nzii) / sqrt(27.0));
+                                alm115 = acos(fabs(-nxii + nyii + 5.0 * nzii) / sqrt(27.0));
+                                al5m11 = acos(fabs(5.0 * nxii - nyii + nzii) / sqrt(27.0));
+                                alm151 = acos(fabs(-nxii + 5.0 * nyii + nzii) / sqrt(27.0));
+                                al115 = acos(fabs(nxii + nyii + 5.0 * nzii) / sqrt(27.0));
+
+                                double arr[16];
                                 arr[0] = al111;
                                 arr[1] = alm111;
                                 arr[2] = al1m11;
                                 arr[3] = al11m1;
+                                arr[4] = alm511;
+                                arr[5] = al1m51;
+                                arr[6] = al11m5;
+                                arr[7] = al511;
+                                arr[8] = al15m1;
+                                arr[9] = al1m15;
+                                arr[10] = al51m1;
+                                arr[11] = al151;
+                                arr[12] = alm115;
+                                arr[13] = al5m11;
+                                arr[14] = alm151;
+                                arr[15] = al115;
 
                                 double min_val = min(arr);
+
                                 if (min_val == al111)
                                 {
-                                    if (al111 < 2.0 / 180.0 * PI)
+                                    if (min_val <= 0.5 / 180.0 * PI)
                                     {
-                                        miijj = mij[ii][jj] * 0.001;
+                                        miijj = mij[ii][jj] * 0.4 + (1 - 0.4) * tan(0.5 / 180.0 * PI) * tanh(1.0 / tan(0.5 / 180.0 * PI));
                                     }
                                     else
                                     {
-                                        miijj = mij[ii][jj] * (0.001 + (1 - 0.001) * tan(al111) * tanh(1.0 / tan(al111)));
+                                        miijj = mij[ii][jj] * (0.4 + (1 - 0.4) * tan(min_val) * tanh(1.0 / tan(min_val)));
                                     }
                                 }
-                                else if (min_val == alm111)
+                                if ((min_val == alm111) || (min_val == al1m11) || (min_val == al11m1) || (min_val == alm511) || (min_val == al1m51) || (min_val == al11m5))
                                 {
-                                    if (alm111 < 2.0 / 180.0 * PI)
+                                    if (min_val <= 0.5 / 180.0 * PI)
                                     {
-                                        miijj = mij[ii][jj] * 0.6;
+                                        miijj = mij[ii][jj] * 0.4 + (1 - 0.4) * tan(0.5 / 180.0 * PI) * tanh(1.0 / tan(0.5 / 180.0 * PI));
                                     }
                                     else
                                     {
-                                        miijj = mij[ii][jj] * (0.6 + (1 - 0.6) * tan(alm111) * tanh(1.0 / tan(alm111)));
+                                        miijj = mij[ii][jj] * (0.4 + (1 - 0.4) * tan(min_val) * tanh(1.0 / tan(min_val)));
                                     }
                                 }
-                                else if (min_val == al1m11)
+                                if ((min_val == al511) || (min_val == al15m1) || (min_val == al1m15) || (min_val == al51m1) || (min_val == al151) || (min_val == alm115) || (min_val == al5m11) || (min_val == alm151) || (min_val == al115))
                                 {
-                                    if (al1m11 < 2.0 / 180.0 * PI)
+                                    if (min_val <= 0.5 / 180.0 * PI)
                                     {
-                                        miijj = mij[ii][jj] * 0.6;
+                                        miijj = mij[ii][jj] * 0.4 + (1 - 0.4) * tan(0.5 / 180.0 * PI) * tanh(1.0 / tan(0.5 / 180.0 * PI));
                                     }
                                     else
                                     {
-                                        miijj = mij[ii][jj] * (0.6 + (1 - 0.6) * tan(al1m11) * tanh(1.0 / tan(al1m11)));
+                                        miijj = mij[ii][jj] * (0.4 + (1 - 0.4) * tan(min_val) * tanh(1.0 / tan(min_val)));
                                     }
                                 }
-                                else if (min_val == al11m1)
-                                {
-                                    if (al11m1 < 2.0 / 180.0 * PI)
-                                    {
-                                        miijj = mij[ii][jj] * 0.6;
-                                    }
-                                    else
-                                    {
-                                        miijj = mij[ii][jj] * (0.6 + (1 - 0.6) * tan(al11m1) * tanh(1.0 / tan(al11m1)));
-                                    }
-                                }
-                                else
-                                {
-                                    miijj = mij[ii][jj];
-                                }
+                                // else
+                                // {
+                                //     miijj = mij[ii][jj];
+                                // }
                             }
                             else
                             {
@@ -595,7 +614,7 @@ int main(int argc, char *argv[])
 double min(double *arr)
 {
     double min_val = arr[0];
-    for (int i = 1; i < 4; i++)
+    for (int i = 1; i <= 15; i++)
     {
         if (arr[i] < min_val)
         {
