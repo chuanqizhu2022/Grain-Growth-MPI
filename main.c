@@ -11,8 +11,8 @@
 
 #define NDX 100 //差分計算における計算領域一辺の分割数
 #define NDY 100 //差分計算における計算領域一辺の分割数
-#define NDZ 2
-#define N 10 //考慮する結晶方位の数＋１(MPF0.cppと比較して、この値を大きくしている)
+#define NDZ 100
+#define N 3 //考慮する結晶方位の数＋１(MPF0.cppと比較して、この値を大きくしている)
 #define BEGIN 1
 #define UTAG 2
 #define DTAG 3
@@ -51,6 +51,9 @@ double F0;               //粒界移動の駆動力
 double temp;             //温度
 double sum1, sum2, sum3; //各種の和の作業変数
 double pddtt;            //フェーズフィールドの時間変化率
+double phidxii, phidyii, phidzii, phiabsii;
+double nxii, nyii, nzii, alii, al111, alm111, al1m11, al11m1;
+double miijj;
 
 double gamma0; //粒界エネルギ密度
 double delta;  //粒界幅（差分ブロック数にて表現）
@@ -63,7 +66,8 @@ double t, r0, r;
 //******* メインプログラム ******************************************
 int main(int argc, char *argv[])
 {
-    nstep = 5000;
+    double min();
+    nstep = 600;
     dtime = 5.0;
     temp = 1000.0;
     L = 2000.0;
@@ -153,27 +157,18 @@ int main(int argc, char *argv[])
             }
         }
 
-        r0 = 10.0;
-        for (ii = 1; ii <= nm - 1; ii++)
+        for (i = 0; i <= ndmx; i++)
         {
-            // x1=x1h[ii]; y1=y1h[ii];
-            x11 = rand() % NDX;
-            y11 = rand() % NDY; //初期核の位置
-            z11 = rand() % NDZ;
-
-            for (i = 0; i <= ndmx; i++)
+            for (j = 0; j <= ndmy; j++)
             {
-                for (j = 0; j <= ndmy; j++)
+                for (k = 0; k <= ndmy; k++)
                 {
-                    for (k = 0; k <= ndmy; k++)
+                    r = sqrt(((i - NDX / 2)) * (i - NDX / 2) + (j - NDY / 2) * (j - NDY / 2) + (k - NDZ / 2) * (k - NDZ / 2));
+                    if (r <= NDX / 10)
                     {
-                        r = sqrt(((i - x11)) * (i - x11) + (j - y11) * (j - y11) + (k - z11) * (k - z11));
-                        if (r <= r0)
-                        {
-                            (*phi)[ii][i][j][k] = 1.0;
-                            (*phi)[nm][i][j][k] = 0.0;
-                        } //初期核位置のフェーズフィールドを設定
-                    }
+                        (*phi)[1][i][j][k] = 1.0;
+                        (*phi)[2][i][j][k] = 0.0;
+                    } //初期核位置のフェーズフィールドを設定
                 }
             }
         }
@@ -217,21 +212,6 @@ int main(int argc, char *argv[])
             MPI_Recv(&(*intphi)[offset], rows * NDY * NDZ, MPI_DOUBLE, source,
                      msgtype, MPI_COMM_WORLD, &status);
         }
-
-        // FILE *stream;
-        // char buffer[30];
-        // sprintf(buffer, "data/2d%d.csv", nstep);
-        // stream = fopen(buffer, "a");
-
-        // for (int i = 0; i <= ndmx; i++)
-        // {
-        //     for (int j = 0; j <= ndmy; j++)
-        //     {
-        //         fprintf(stream, "%e\n", intphi[i][j]);
-        //     }
-        // }
-
-        // fclose(stream);
 
         FILE *stream;
         char buffer[30];
@@ -445,6 +425,12 @@ int main(int argc, char *argv[])
                     {
                         ii = (*phiIdx)[n1][i][j][k];
                         pddtt = 0.0;
+
+                        phidxii = ((*phi)[ii][ip][j][k] - (*phi)[ii][im][j][k]) / 2.0 / dx;
+                        phidyii = ((*phi)[ii][i][jp][k] - (*phi)[ii][i][jm][k]) / 2.0 / dx;
+                        phidzii = ((*phi)[ii][i][j][kp] - (*phi)[ii][i][j][km]) / 2.0 / dx;
+                        phiabsii = phidxii * phidxii + phidyii * phidyii + phidzii * phidzii;
+
                         for (n2 = 1; n2 <= (*phiNum)[i][j][k]; n2++)
                         {
                             jj = (*phiIdx)[n2][i][j][k];
@@ -454,7 +440,77 @@ int main(int argc, char *argv[])
                                 kk = (*phiIdx)[n3][i][j][k];
                                 sum1 += 0.5 * (aij[ii][kk] - aij[jj][kk]) * ((*phi)[kk][ip][j][k] + (*phi)[kk][im][j][k] + (*phi)[kk][i][jp][k] + (*phi)[kk][i][jm][k] + (*phi)[kk][i][j][kp] + (*phi)[kk][i][j][km] - 6.0 * (*phi)[kk][i][j][k]) + (wij[ii][kk] - wij[jj][kk]) * (*phi)[kk][i][j][k]; //[式(4.31)の一部]
                             }
-                            pddtt += -2.0 * mij[ii][jj] / (double)((*phiNum)[i][j][k]) * (sum1 - 8.0 / PI * fij[ii][jj] * sqrt((*phi)[ii][i][j][k] * (*phi)[jj][i][j][k]));
+                            if ((ii + jj) == 3 && phiabsii != 0.0)
+                            {
+                                nxii = phidxii / sqrt(phiabsii);
+                                nyii = phidyii / sqrt(phiabsii);
+                                nzii = phidzii / sqrt(phiabsii);
+                                al111 = acos(fabs(nxii + nyii + nzii) / sqrt(3.0));
+                                alm111 = acos(fabs(-nxii + nyii + nzii) / sqrt(3.0));
+                                al1m11 = acos(fabs(nxii - nyii + nzii) / sqrt(3.0));
+                                al11m1 = acos(fabs(nxii + nyii - nzii) / sqrt(3.0));
+
+                                double arr[4];
+                                arr[0] = al111;
+                                arr[1] = alm111;
+                                arr[2] = al1m11;
+                                arr[3] = al11m1;
+
+                                double min_val = min(arr);
+                                if (min_val == al111)
+                                {
+                                    if (al111 < 2.0 / 180.0 * PI)
+                                    {
+                                        miijj = mij[ii][jj] * 0.001;
+                                    }
+                                    else
+                                    {
+                                        miijj = mij[ii][jj] * (0.001 + (1 - 0.001) * tan(al111) * tanh(1.0 / tan(al111)));
+                                    }
+                                }
+                                else if (min_val == alm111)
+                                {
+                                    if (alm111 < 2.0 / 180.0 * PI)
+                                    {
+                                        miijj = mij[ii][jj] * 0.6;
+                                    }
+                                    else
+                                    {
+                                        miijj = mij[ii][jj] * (0.6 + (1 - 0.6) * tan(alm111) * tanh(1.0 / tan(alm111)));
+                                    }
+                                }
+                                else if (min_val == al1m11)
+                                {
+                                    if (al1m11 < 2.0 / 180.0 * PI)
+                                    {
+                                        miijj = mij[ii][jj] * 0.6;
+                                    }
+                                    else
+                                    {
+                                        miijj = mij[ii][jj] * (0.6 + (1 - 0.6) * tan(al1m11) * tanh(1.0 / tan(al1m11)));
+                                    }
+                                }
+                                else if (min_val == al11m1)
+                                {
+                                    if (al11m1 < 2.0 / 180.0 * PI)
+                                    {
+                                        miijj = mij[ii][jj] * 0.6;
+                                    }
+                                    else
+                                    {
+                                        miijj = mij[ii][jj] * (0.6 + (1 - 0.6) * tan(al11m1) * tanh(1.0 / tan(al11m1)));
+                                    }
+                                }
+                                else
+                                {
+                                    miijj = mij[ii][jj];
+                                }
+                            }
+                            else
+                            {
+                                miijj = mij[ii][jj];
+                            }
+                            pddtt += -2.0 * miijj / (double)((*phiNum)[i][j][k]) * (sum1 - 8.0 / PI * fij[ii][jj] * sqrt((*phi)[ii][i][j][k] * (*phi)[jj][i][j][k]));
                             //フェーズフィールドの発展方程式[式(4.31)]
                         }
                         (*phi2)[ii][i][j][k] = (*phi)[ii][i][j][k] + pddtt * dtime; //フェーズフィールドの時間発展（陽解法）
@@ -534,4 +590,17 @@ int main(int argc, char *argv[])
         MPI_Finalize();
     }
     return 0;
+}
+
+double min(double *arr)
+{
+    double min_val = arr[0];
+    for (int i = 1; i < 4; i++)
+    {
+        if (arr[i] < min_val)
+        {
+            min_val = arr[i];
+        }
+    }
+    return min_val;
 }
