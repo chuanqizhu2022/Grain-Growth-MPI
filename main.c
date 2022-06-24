@@ -57,6 +57,8 @@ double al111, alm111, al1m11, al11m1;
 double alm511, al1m51, al11m5;
 double al511, al15m1, al1m15, al51m1, al151, alm115, al5m11, alm151, al115;
 double miijj;
+double min_val, ang0;
+double zeta1, zeta2, zeta3;
 
 double gamma0; //粒界エネルギ密度
 double delta;  //粒界幅（差分ブロック数にて表現）
@@ -69,7 +71,6 @@ double t, r0, r;
 //******* メインプログラム ******************************************
 int main(int argc, char *argv[])
 {
-    double min();
     nstep = 1200;
     dtime = 5.0;
     temp = 1000.0;
@@ -77,6 +78,10 @@ int main(int argc, char *argv[])
     vm0 = 7.0e-6;
     delta = 7.0;
     mobi = 1.0;
+    zeta1 = 0.001;
+    zeta2 = 0.3;
+    zeta3 = 0.4;
+    ang0 = 1.0 / 180.0 * PI;
 
     dx = L / 100 * 1.0e-9;               //差分プロック１辺の長さ(m)
     gamma0 = 0.5 * vm0 / RR / temp / dx; //粒界エネルギ密度（0.5J/m^2）を無次元化
@@ -443,7 +448,7 @@ int main(int argc, char *argv[])
                                 kk = (*phiIdx)[n3][i][j][k];
                                 sum1 += 0.5 * (aij[ii][kk] - aij[jj][kk]) * ((*phi)[kk][ip][j][k] + (*phi)[kk][im][j][k] + (*phi)[kk][i][jp][k] + (*phi)[kk][i][jm][k] + (*phi)[kk][i][j][kp] + (*phi)[kk][i][j][km] - 6.0 * (*phi)[kk][i][j][k]) + (wij[ii][kk] - wij[jj][kk]) * (*phi)[kk][i][j][k]; //[式(4.31)の一部]
                             }
-                            if ((ii + jj) == 3 && phiabsii != 0.0)
+                            if ((ii + jj) == 3)
                             {
                                 nxii = phidxii / sqrt(phiabsii);
                                 nyii = phidyii / sqrt(phiabsii);
@@ -485,45 +490,48 @@ int main(int argc, char *argv[])
                                 arr[14] = alm151;
                                 arr[15] = al115;
 
-                                double min_val = min(arr);
+                                min_val = arr[0];
+                                for (l = 1; l <= 15; l++)
+                                {
+                                    if (min_val > arr[l])
+                                    {
+                                        min_val = arr[l];
+                                    }
+                                }
 
                                 if (min_val == al111)
                                 {
-                                    if (min_val <= 0.5 / 180.0 * PI)
+                                    if (min_val <= ang0)
                                     {
-                                        miijj = mij[ii][jj] * 0.4 + (1 - 0.4) * tan(0.5 / 180.0 * PI) * tanh(1.0 / tan(0.5 / 180.0 * PI));
+                                        miijj = mij[ii][jj] * (zeta1 + (1 - zeta1) * tan(ang0) * tanh(1.0 / tan(ang0)));
                                     }
                                     else
                                     {
-                                        miijj = mij[ii][jj] * (0.4 + (1 - 0.4) * tan(min_val) * tanh(1.0 / tan(min_val)));
+                                        miijj = mij[ii][jj] * (zeta1 + (1 - zeta1) * tan(min_val) * tanh(1.0 / tan(min_val)));
                                     }
                                 }
                                 if ((min_val == alm111) || (min_val == al1m11) || (min_val == al11m1) || (min_val == alm511) || (min_val == al1m51) || (min_val == al11m5))
                                 {
-                                    if (min_val <= 0.5 / 180.0 * PI)
+                                    if (min_val <= ang0)
                                     {
-                                        miijj = mij[ii][jj] * 0.4 + (1 - 0.4) * tan(0.5 / 180.0 * PI) * tanh(1.0 / tan(0.5 / 180.0 * PI));
+                                        miijj = mij[ii][jj] * (zeta2 + (1 - zeta2) * tan(ang0) * tanh(1.0 / tan(ang0)));
                                     }
                                     else
                                     {
-                                        miijj = mij[ii][jj] * (0.4 + (1 - 0.4) * tan(min_val) * tanh(1.0 / tan(min_val)));
+                                        miijj = mij[ii][jj] * (zeta2 + (1 - zeta2) * tan(min_val) * tanh(1.0 / tan(min_val)));
                                     }
                                 }
                                 if ((min_val == al511) || (min_val == al15m1) || (min_val == al1m15) || (min_val == al51m1) || (min_val == al151) || (min_val == alm115) || (min_val == al5m11) || (min_val == alm151) || (min_val == al115))
                                 {
-                                    if (min_val <= 0.5 / 180.0 * PI)
+                                    if (min_val <= ang0)
                                     {
-                                        miijj = mij[ii][jj] * 0.4 + (1 - 0.4) * tan(0.5 / 180.0 * PI) * tanh(1.0 / tan(0.5 / 180.0 * PI));
+                                        miijj = mij[ii][jj] * (zeta3 + (1 - zeta3) * tan(ang0) * tanh(1.0 / tan(ang0)));
                                     }
                                     else
                                     {
-                                        miijj = mij[ii][jj] * (0.4 + (1 - 0.4) * tan(min_val) * tanh(1.0 / tan(min_val)));
+                                        miijj = mij[ii][jj] * (zeta3 + (1 - zeta3) * tan(min_val) * tanh(1.0 / tan(min_val)));
                                     }
                                 }
-                                // else
-                                // {
-                                //     miijj = mij[ii][jj];
-                                // }
                             }
                             else
                             {
@@ -609,17 +617,4 @@ int main(int argc, char *argv[])
         MPI_Finalize();
     }
     return 0;
-}
-
-double min(double *arr)
-{
-    double min_val = arr[0];
-    for (int i = 1; i <= 15; i++)
-    {
-        if (arr[i] < min_val)
-        {
-            min_val = arr[i];
-        }
-    }
-    return min_val;
 }
