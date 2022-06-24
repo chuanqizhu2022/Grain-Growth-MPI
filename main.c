@@ -57,7 +57,7 @@ double al111, alm111, al1m11, al11m1;
 double alm511, al1m51, al11m5;
 double al511, al15m1, al1m15, al51m1, al151, alm115, al5m11, alm151, al115;
 double miijj;
-double min_val, ang0;
+double min_val, rp;
 double zeta1, zeta2, zeta3;
 
 double gamma0; //粒界エネルギ密度
@@ -79,9 +79,9 @@ int main(int argc, char *argv[])
     delta = 7.0;
     mobi = 1.0;
     zeta1 = 0.001;
-    zeta2 = 0.3;
-    zeta3 = 0.4;
-    ang0 = 1.0 / 180.0 * PI;
+    zeta2 = 0.6;
+    zeta3 = 0.8;
+    rp = 0.02;
 
     dx = L / 100 * 1.0e-9;               //差分プロック１辺の長さ(m)
     gamma0 = 0.5 * vm0 / RR / temp / dx; //粒界エネルギ密度（0.5J/m^2）を無次元化
@@ -501,36 +501,15 @@ int main(int argc, char *argv[])
 
                                 if (min_val == al111)
                                 {
-                                    if (min_val <= ang0)
-                                    {
-                                        miijj = mij[ii][jj] * (zeta1 + (1 - zeta1) * tan(ang0) * tanh(1.0 / tan(ang0)));
-                                    }
-                                    else
-                                    {
-                                        miijj = mij[ii][jj] * (zeta1 + (1 - zeta1) * tan(min_val) * tanh(1.0 / tan(min_val)));
-                                    }
+                                    miijj = mij[ii][jj] * (zeta1 + (1 - zeta1) * sqrt(pow(tan(min_val), 2.0) + rp * rp) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp * rp)));
                                 }
                                 if ((min_val == alm111) || (min_val == al1m11) || (min_val == al11m1) || (min_val == alm511) || (min_val == al1m51) || (min_val == al11m5))
                                 {
-                                    if (min_val <= ang0)
-                                    {
-                                        miijj = mij[ii][jj] * (zeta2 + (1 - zeta2) * tan(ang0) * tanh(1.0 / tan(ang0)));
-                                    }
-                                    else
-                                    {
-                                        miijj = mij[ii][jj] * (zeta2 + (1 - zeta2) * tan(min_val) * tanh(1.0 / tan(min_val)));
-                                    }
+                                    miijj = mij[ii][jj] * (zeta2 + (1 - zeta2) * sqrt(pow(tan(min_val), 2.0) + rp * rp) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp * rp)));
                                 }
                                 if ((min_val == al511) || (min_val == al15m1) || (min_val == al1m15) || (min_val == al51m1) || (min_val == al151) || (min_val == alm115) || (min_val == al5m11) || (min_val == alm151) || (min_val == al115))
                                 {
-                                    if (min_val <= ang0)
-                                    {
-                                        miijj = mij[ii][jj] * (zeta3 + (1 - zeta3) * tan(ang0) * tanh(1.0 / tan(ang0)));
-                                    }
-                                    else
-                                    {
-                                        miijj = mij[ii][jj] * (zeta3 + (1 - zeta3) * tan(min_val) * tanh(1.0 / tan(min_val)));
-                                    }
+                                    miijj = mij[ii][jj] * (zeta3 + (1 - zeta3) * sqrt(pow(tan(min_val), 2.0) + rp * rp) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp * rp)));
                                 }
                             }
                             else
