@@ -9,9 +9,9 @@
 #include <math.h>
 #include "mpi.h"
 
-#define NDX 100 //差分計算における計算領域一辺の分割数
-#define NDY 100 //差分計算における計算領域一辺の分割数
-#define NDZ 100
+#define NDX 50 //差分計算における計算領域一辺の分割数
+#define NDY 50 //差分計算における計算領域一辺の分割数
+#define NDZ 50
 #define N 3 //考慮する結晶方位の数＋１(MPF0.cppと比較して、この値を大きくしている)
 #define BEGIN 1
 #define UTAG 2
@@ -71,7 +71,7 @@ double t, r0, r;
 //******* メインプログラム ******************************************
 int main(int argc, char *argv[])
 {
-    nstep = 1200;
+    nstep = 1000;
     dtime = 5.0;
     temp = 1000.0;
     L = 2000.0;
@@ -446,6 +446,7 @@ int main(int argc, char *argv[])
                             for (n3 = 1; n3 <= (*phiNum)[i][j][k]; n3++)
                             {
                                 kk = (*phiIdx)[n3][i][j][k];
+
                                 sum1 += 0.5 * (aij[ii][kk] - aij[jj][kk]) * ((*phi)[kk][ip][j][k] + (*phi)[kk][im][j][k] + (*phi)[kk][i][jp][k] + (*phi)[kk][i][jm][k] + (*phi)[kk][i][j][kp] + (*phi)[kk][i][j][km] - 6.0 * (*phi)[kk][i][j][k]) + (wij[ii][kk] - wij[jj][kk]) * (*phi)[kk][i][j][k]; //[式(4.31)の一部]
                             }
                             if ((ii + jj) == 3)
