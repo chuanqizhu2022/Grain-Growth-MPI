@@ -95,3 +95,20 @@ double ****phi, ***intphi;
                 intphi[i][j] = new double[NDZ];
             }
         }
+
+
+
+        // cos_al = (nx + ny + nz) / sqrt(3.0);
+                                    // ep = epsilon0 * (1.0 + sqrt(cos_al * cos_al + rp * rp) + sqrt(1.0 - cos_al * cos_al + rp * rp) * tan(al0));
+                                    // dphiabsdx = 1.0 / phiabs * (phidx * phidxx + phidy * phidxy + phidz * phidxz);
+                                    // dphiabs2dx = 2.0 * (phidx * phidxx + phidy * phidxy + phidz * phidxz);
+                                    // dcosdx = 1.0 / sqrt(3.0) / phiabs2 * ((phidxx + phidxy + phidxz) * phiabs - dphiabsdx * (phidx + phidy + phidz));
+                                    // dsindx = -cos_al / sqrt(1.0 - cos_al * cos_al) * dcosdx;
+                                    // dcosdphix = 1.0 / sqrt(3.0) / phiabs2 * (phiabs - nx * (phidx + phidy + phidz));
+                                    // dsindphix = -cos_al / sqrt(1.0 - cos_al * cos_al) * dcosdphix;
+
+                                    // dcosdphixdx = 1.0 / sqrt(3.0) * (-dphiabsdx / phiabs2 - 1.0 / pow(phiabs2, 3.0) * ((2.0 * phidx * phidxx + phidxx * phidy + phidx * phidxy + phidxx * phidz + phidx * phidxz) * phiabs * phiabs2 - (3.0 * phiabs * (phidx * phidxx + phidy * phidxy + phidz * phidxz) * (phidx + phidy + phidz) * phidx)));
+                                    // dsindphixdx = ;
+                                    // epdx = cos_al / sqrt(cos_al * cos_al + rp * rp) * dcosdx + tan(al0) * sqrt(1.0 - cos_al * cos_al) / sqrt(sin_al * sin_al + rp * rp) * dsindx;
+                                    // epdphix = cos_al / sqrt(cos_al * cos_al + rp * rp) * dcosdphix + tan(al0) * sqrt(1.0 - cos_al * cos_al) / sqrt(sin_al * sin_al + rp * rp) * dsindphix;
+                                    // epdphixdx = dcosdphix / (cos_al * cos_al + rp * rp) * (dcosdx * sqrt(cos_al * cos_al + rp * rp) - cos_al * cos_al / sqrt(cos_al * cos_al + rp * rp) * dcosdx) * dcosdphix + dcosdphixdx * cos_al / sqrt(cos_al * cos_al + rp * rp) + tan(al0) * ();
