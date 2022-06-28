@@ -30,10 +30,13 @@ int nm = N - 1, nmm = N - 2; //考慮する結晶方位の数、N-2（考慮す�
 double PI = 3.141592;        //π、計算カウント数
 double RR = 8.3145;          //ガス定数
 
-double aij[N][N]; //勾配エネルギー係数
-double wij[N][N]; //ペナルティー項の係数
-double mij[N][N]; //粒界の易動度
-double fij[N][N]; //粒界移動の駆動力
+double aij[N][N];   //勾配エネルギー係数
+double wij[N][N];   //ペナルティー項の係数
+double mij[N][N];   //粒界の易動度
+double fij[N][N];   //粒界移動の駆動力
+double thij[N][N];  //ペナルティー項の係数
+double vpij[N][N];  //粒界の易動度
+double etaij[N][N]; //粒界移動の駆動力
 int phinum;
 
 int i, j, k, l, ii, jj, kk, ll, it; //整数
@@ -59,6 +62,9 @@ double al511, al15m1, al1m15, al51m1, al151, alm115, al5m11, alm151, al115;
 double miijj;
 double min_val, ang0;
 double zeta1, zeta2, zeta3;
+double th, vp, eta;
+double xxp, xyp, xzp, yxp, yyp, yzp, zxp, zyp, zzp;
+double phidxpii, phidypii, phidzpii;
 
 double gamma0; //粒界エネルギ密度
 double delta;  //粒界幅（差分ブロック数にて表現）
@@ -71,7 +77,7 @@ double t, r0, r;
 //******* メインプログラム ******************************************
 int main(int argc, char *argv[])
 {
-    nstep = 1200;
+    nstep = 1000;
     dtime = 5.0;
     temp = 1000.0;
     L = 2000.0;
@@ -79,8 +85,8 @@ int main(int argc, char *argv[])
     delta = 7.0;
     mobi = 1.0;
     zeta1 = 0.001;
-    zeta2 = 0.3;
-    zeta3 = 0.4;
+    zeta2 = 0.6;
+    zeta3 = 0.8;
     ang0 = 1.0 / 180.0 * PI;
 
     dx = L / 100 * 1.0e-9;               //差分プロック１辺の長さ(m)
@@ -115,6 +121,9 @@ int main(int argc, char *argv[])
             }
         }
     }
+
+    // thij[1][2] = PI / 8;
+    // thij[2][1] = PI / 8;
 
     int taskid,
         numworkers,
@@ -450,9 +459,29 @@ int main(int argc, char *argv[])
                             }
                             if ((ii + jj) == 3)
                             {
-                                nxii = phidxii / sqrt(phiabsii);
-                                nyii = phidyii / sqrt(phiabsii);
-                                nzii = phidzii / sqrt(phiabsii);
+
+                                th = thij[ii][jj];
+                                vp = vpij[ii][jj];
+                                eta = etaij[ii][jj];
+
+                                xxp = cos(th) * cos(vp);
+                                yxp = sin(th) * cos(vp);
+                                zxp = sin(vp);
+                                xyp = -sin(th) * cos(eta) - cos(th) * sin(vp) * sin(eta);
+                                yyp = cos(th) * cos(eta) - sin(th) * sin(vp) * sin(eta);
+                                zyp = cos(vp) * sin(eta);
+                                xzp = sin(eta) * sin(th) - cos(eta) * cos(th) * sin(vp);
+                                yzp = -sin(eta) * cos(th) - cos(eta) * sin(th) * sin(vp);
+                                zzp = cos(eta) * cos(vp);
+
+                                phidxpii = phidxii * xxp + phidyii * yxp + phidzii * zxp;
+                                phidypii = phidxii * xyp + phidyii * yyp + phidzii * zyp;
+                                phidzpii = phidxii * xzp + phidyii * yzp + phidzii * zzp;
+
+                                nxii = phidxpii / sqrt(phiabsii);
+                                nyii = phidypii / sqrt(phiabsii);
+                                nzii = phidzpii / sqrt(phiabsii);
+
                                 al111 = acos(fabs(nxii + nyii + nzii) / sqrt(3.0));
                                 alm111 = acos(fabs(-nxii + nyii + nzii) / sqrt(3.0));
                                 al1m11 = acos(fabs(nxii - nyii + nzii) / sqrt(3.0));
