@@ -1,114 +1,184 @@
 double ****phi, ***intphi;
 
-        phi = new double ***[N];
-        for (ii = 0; ii <= nm; ii++)
+phi = new double ***[N];
+for (ii = 0; ii <= nm; ii++)
+{
+    phi[ii] = new double **[NDX];
+    for (i = 0; i <= ndmx; i++)
+    {
+        phi[ii][i] = new double *[NDY];
+        for (j = 0; j <= ndmy; j++)
         {
-            phi[ii] = new double **[NDX];
-            for (i = 0; i <= ndmx; i++)
-            {
-                phi[ii][i] = new double *[NDY];
-                for (j = 0; j <= ndmy; j++)
-                {
-                    phi[ii][i][j] = new double[NDZ];
-                }
-            }
+            phi[ii][i][j] = new double[NDZ];
         }
+    }
+}
 
-        intphi = new double **[NDX];
-        for (i = 0; i <= ndmx; i++)
+intphi = new double **[NDX];
+for (i = 0; i <= ndmx; i++)
+{
+    intphi[i] = new double *[NDY];
+    for (j = 0; j <= ndmy; j++)
+    {
+        intphi[i][j] = new double[NDZ];
+    }
+}
+
+for (i = 0; i <= ndmx; i++)
+{
+    for (j = 0; j <= ndmy; j++)
+    {
+        for (k = 0; k <= ndmz; k++)
         {
-            intphi[i] = new double *[NDY];
-            for (j = 0; j <= ndmy; j++)
+            for (ii = 1; ii <= nm - 1; ii++)
             {
-                intphi[i][j] = new double[NDZ];
+                phi[ii][i][j][k] = 0.0;
             }
+            phi[nm][i][j][k] = 1.0; // nm番目のフェーズフィールドを１に初期化
         }
+    }
+}
 
-        for (i = 0; i <= ndmx; i++)
+double ****phi, ****phi2;
+int ***phiNum, ****phiIdx;
+double ***intphi;
+
+phi = new double ***[N];
+phi2 = new double ***[N];
+for (ii = 0; ii <= nm; ii++)
+{
+    phi[ii] = new double **[rows + 2];
+    phi2[ii] = new double **[rows + 2];
+    for (i = 0; i <= rows + 1; i++)
+    {
+        phi[ii][i] = new double *[NDY];
+        phi2[ii][i] = new double *[NDY];
+        for (j = 0; j <= ndmy; j++)
         {
-            for (j = 0; j <= ndmy; j++)
-            {
-                for (k = 0; k <= ndmz; k++)
-                {
-                    for (ii = 1; ii <= nm - 1; ii++)
-                    {
-                        phi[ii][i][j][k] = 0.0;
-                    }
-                    phi[nm][i][j][k] = 1.0; // nm番目のフェーズフィールドを１に初期化
-                }
-            }
+            phi[ii][i][j] = new double[NDZ];
+            phi2[ii][i][j] = new double[NDZ];
         }
+    }
+}
 
-        double ****phi, ****phi2;
-        int ***phiNum, ****phiIdx;
-        double ***intphi;
+phiNum = new int **[rows + 2];
+for (i = 0; i <= rows + 1; i++)
+{
+    phiNum[i] = new int *[NDY];
 
-        phi = new double ***[N];
-        phi2 = new double ***[N];
-        for (ii = 0; ii <= nm; ii++)
+    for (j = 0; j <= ndmy; j++)
+    {
+        phiNum[i][j] = new int[NDZ];
+    }
+}
+
+phiIdx = new int ***[N + 1];
+for (ii = 0; ii <= N; ii++)
+{
+    phiIdx[ii] = new int **[rows + 2];
+    for (i = 0; i <= rows + 1; i++)
+    {
+        phiIdx[ii][i] = new int *[NDY];
+        for (j = 0; j <= ndmy; j++)
         {
-            phi[ii] = new double **[rows + 2];
-            phi2[ii] = new double **[rows + 2];
-            for (i = 0; i <= rows + 1; i++)
-            {
-                phi[ii][i] = new double *[NDY];
-                phi2[ii][i] = new double *[NDY];
-                for (j = 0; j <= ndmy; j++)
-                {
-                    phi[ii][i][j] = new double[NDZ];
-                    phi2[ii][i][j] = new double[NDZ];
-                }
-            }
+            phiIdx[ii][i][j] = new int[NDZ];
         }
+    }
+}
 
-        phiNum = new int **[rows + 2];
-        for (i = 0; i <= rows + 1; i++)
-        {
-            phiNum[i] = new int *[NDY];
+intphi = new double **[rows + 2];
+for (i = 0; i <= rows + 1; i++)
+{
+    intphi[i] = new double *[NDY];
+    for (j = 0; j <= ndmy; j++)
+    {
+        intphi[i][j] = new double[NDZ];
+    }
+}
 
-            for (j = 0; j <= ndmy; j++)
-            {
-                phiNum[i][j] = new int[NDZ];
-            }
-        }
+// cos_al = (nx + ny + nz) / sqrt(3.0);
+// ep = epsilon0 * (1.0 + sqrt(cos_al * cos_al + rp * rp) + sqrt(1.0 - cos_al * cos_al + rp * rp) * tan(al0));
+// dphiabsdx = 1.0 / phiabs * (phidx * phidxx + phidy * phidxy + phidz * phidxz);
+// dphiabs2dx = 2.0 * (phidx * phidxx + phidy * phidxy + phidz * phidxz);
+// dcosdx = 1.0 / sqrt(3.0) / phiabs2 * ((phidxx + phidxy + phidxz) * phiabs - dphiabsdx * (phidx + phidy + phidz));
+// dsindx = -cos_al / sqrt(1.0 - cos_al * cos_al) * dcosdx;
+// dcosdphix = 1.0 / sqrt(3.0) / phiabs2 * (phiabs - nx * (phidx + phidy + phidz));
+// dsindphix = -cos_al / sqrt(1.0 - cos_al * cos_al) * dcosdphix;
 
-        phiIdx = new int ***[N + 1];
-        for (ii = 0; ii <= N; ii++)
-        {
-            phiIdx[ii] = new int **[rows + 2];
-            for (i = 0; i <= rows + 1; i++)
-            {
-                phiIdx[ii][i] = new int *[NDY];
-                for (j = 0; j <= ndmy; j++)
-                {
-                    phiIdx[ii][i][j] = new int[NDZ];
-                }
-            }
-        }
+// dcosdphixdx = 1.0 / sqrt(3.0) * (-dphiabsdx / phiabs2 - 1.0 / pow(phiabs2, 3.0) * ((2.0 * phidx * phidxx + phidxx * phidy + phidx * phidxy + phidxx * phidz + phidx * phidxz) * phiabs * phiabs2 - (3.0 * phiabs * (phidx * phidxx + phidy * phidxy + phidz * phidxz) * (phidx + phidy + phidz) * phidx)));
+// dsindphixdx = ;
+// epdx = cos_al / sqrt(cos_al * cos_al + rp * rp) * dcosdx + tan(al0) * sqrt(1.0 - cos_al * cos_al) / sqrt(sin_al * sin_al + rp * rp) * dsindx;
+// epdphix = cos_al / sqrt(cos_al * cos_al + rp * rp) * dcosdphix + tan(al0) * sqrt(1.0 - cos_al * cos_al) / sqrt(sin_al * sin_al + rp * rp) * dsindphix;
+// epdphixdx = dcosdphix / (cos_al * cos_al + rp * rp) * (dcosdx * sqrt(cos_al * cos_al + rp * rp) - cos_al * cos_al / sqrt(cos_al * cos_al + rp * rp) * dcosdx) * dcosdphix + dcosdphixdx * cos_al / sqrt(cos_al * cos_al + rp * rp) + tan(al0) * ();
 
-        intphi = new double **[rows + 2];
-        for (i = 0; i <= rows + 1; i++)
-        {
-            intphi[i] = new double *[NDY];
-            for (j = 0; j <= ndmy; j++)
-            {
-                intphi[i][j] = new double[NDZ];
-            }
-        }
+nxx = phidx * phidxx / nx / phiabs2 - pow(phidx, 2.0) * dphiabs2dx / 2.0 / nx / pow(phiabs2, 2.0);
+//         nyx = phidy * phidxy / ny / phiabs2 - pow(phidy, 2.0) * dphiabs2dx / 2.0 / ny / pow(phiabs2, 2.0);
+//         nzx = phidz * phidxz / nz / phiabs2 - pow(phidz, 2.0) * dphiabs2dx / 2.0 / nz / pow(phiabs2, 2.0);
 
+//         nxy = phidx * phidxy / nx / phiabs2 - pow(phidx, 2.0) * dphiabs2dy / 2.0 / nx / pow(phiabs2, 2.0);
+//         nyy = phidy * phidyy / ny / phiabs2 - pow(phidy, 2.0) * dphiabs2dy / 2.0 / ny / pow(phiabs2, 2.0);
+//         nzy = phidz * phidyz / nz / phiabs2 - pow(phidz, 2.0) * dphiabs2dy / 2.0 / nz / pow(phiabs2, 2.0);
 
+//         nxz = phidx * phidxz / nx / phiabs2 - pow(phidx, 2.0) * dphiabs2dz / 2.0 / nx / pow(phiabs2, 2.0);
+//         nyz = phidy * phidyz / ny / phiabs2 - pow(phidy, 2.0) * dphiabs2dz / 2.0 / ny / pow(phiabs2, 2.0);
+//         nzz = phidz * phidzz / nz / phiabs2 - pow(phidz, 2.0) * dphiabs2dz / 2.0 / nz / pow(phiabs2, 2.0);
 
-        // cos_al = (nx + ny + nz) / sqrt(3.0);
-                                    // ep = epsilon0 * (1.0 + sqrt(cos_al * cos_al + rp * rp) + sqrt(1.0 - cos_al * cos_al + rp * rp) * tan(al0));
-                                    // dphiabsdx = 1.0 / phiabs * (phidx * phidxx + phidy * phidxy + phidz * phidxz);
-                                    // dphiabs2dx = 2.0 * (phidx * phidxx + phidy * phidxy + phidz * phidxz);
-                                    // dcosdx = 1.0 / sqrt(3.0) / phiabs2 * ((phidxx + phidxy + phidxz) * phiabs - dphiabsdx * (phidx + phidy + phidz));
-                                    // dsindx = -cos_al / sqrt(1.0 - cos_al * cos_al) * dcosdx;
-                                    // dcosdphix = 1.0 / sqrt(3.0) / phiabs2 * (phiabs - nx * (phidx + phidy + phidz));
-                                    // dsindphix = -cos_al / sqrt(1.0 - cos_al * cos_al) * dcosdphix;
+//         nxphix = phidx / nx / phiabs2 - pow(phidx, 3.0) / nx / pow(phiabs2, 2.0);
+//         nyphiy = phidy / ny / phiabs2 - pow(phidy, 3.0) / ny / pow(phiabs2, 2.0);
+//         nzphiz = phidz / nz / phiabs2 - pow(phidz, 3.0) / nz / pow(phiabs2, 2.0);
 
-                                    // dcosdphixdx = 1.0 / sqrt(3.0) * (-dphiabsdx / phiabs2 - 1.0 / pow(phiabs2, 3.0) * ((2.0 * phidx * phidxx + phidxx * phidy + phidx * phidxy + phidxx * phidz + phidx * phidxz) * phiabs * phiabs2 - (3.0 * phiabs * (phidx * phidxx + phidy * phidxy + phidz * phidxz) * (phidx + phidy + phidz) * phidx)));
-                                    // dsindphixdx = ;
-                                    // epdx = cos_al / sqrt(cos_al * cos_al + rp * rp) * dcosdx + tan(al0) * sqrt(1.0 - cos_al * cos_al) / sqrt(sin_al * sin_al + rp * rp) * dsindx;
-                                    // epdphix = cos_al / sqrt(cos_al * cos_al + rp * rp) * dcosdphix + tan(al0) * sqrt(1.0 - cos_al * cos_al) / sqrt(sin_al * sin_al + rp * rp) * dsindphix;
-                                    // epdphixdx = dcosdphix / (cos_al * cos_al + rp * rp) * (dcosdx * sqrt(cos_al * cos_al + rp * rp) - cos_al * cos_al / sqrt(cos_al * cos_al + rp * rp) * dcosdx) * dcosdphix + dcosdphixdx * cos_al / sqrt(cos_al * cos_al + rp * rp) + tan(al0) * ();
+//         nyphix = -pow(phidy, 2.0) * phidx / ny / pow(phiabs2, 2.0);
+//         nzphix = -pow(phidz, 2.0) * phidx / nz / pow(phiabs2, 2.0);
+
+//         nxphiy = -pow(phidx, 2.0) * phidy / nx / pow(phiabs2, 2.0);
+//         nzphiy = -pow(phidz, 2.0) * phidy / nz / pow(phiabs2, 2.0);
+
+//         nxphiz = -pow(phidx, 2.0) * phidz / nx / pow(phiabs2, 2.0);
+//         nyphiz = -pow(phidy, 2.0) * phidz / ny / pow(phiabs2, 2.0);
+
+//         nxphixdx = -(3.0 * pow(phidx, 2.0) * phidxx * nx * pow(phiabs2, 2.0) - pow(phidx, 3.0) * (nxx * pow(phiabs2, 2.0) + nx * 2.0 * phiabs2 * dphiabs2dx)) / pow(nx, 2.0) / pow(phiabs2, 4.0) + (phidxx * nx * phiabs2 - phidx * (nxx * phiabs2 + nx * dphiabs2dx)) / pow(nx, 2.0) / pow(phiabs2, 2.0);
+//         nyphiydy = -(3.0 * pow(phidy, 2.0) * phidyy * ny * pow(phiabs2, 2.0) - pow(phidy, 3.0) * (nyy * pow(phiabs2, 2.0) + ny * 2.0 * phiabs2 * dphiabs2dy)) / pow(ny, 2.0) / pow(phiabs2, 4.0) + (phidyy * ny * phiabs2 - phidy * (nyy * phiabs2 + ny * dphiabs2dy)) / pow(ny, 2.0) / pow(phiabs2, 2.0);
+//         nzphizdz = -(3.0 * pow(phidz, 2.0) * phidzz * nz * pow(phiabs2, 2.0) - pow(phidz, 3.0) * (nzz * pow(phiabs2, 2.0) + nz * 2.0 * phiabs2 * dphiabs2dz)) / pow(nz, 2.0) / pow(phiabs2, 4.0) + (phidzz * nz * phiabs2 - phidz * (nzz * phiabs2 + nz * dphiabs2dz)) / pow(nz, 2.0) / pow(phiabs2, 2.0);
+
+//         nyphixdx = -((pow(phidy, 2.0) * phidxx + 2.0 * phidy * phidxy * phidx) * ny * pow(phiabs2, 2.0) - pow(phidy, 2.0) * phidx * (nxy * pow(phiabs2, 2.0) + ny * 2.0 * phiabs2 * dphiabs2dx)) / pow(ny, 2.0) / pow(phiabs2, 4.0);
+//         nzphixdx = -((pow(phidz, 2.0) * phidxx + 2.0 * phidz * phidxz * phidx) * nz * pow(phiabs2, 2.0) - pow(phidz, 2.0) * phidx * (nxz * pow(phiabs2, 2.0) + nz * 2.0 * phiabs2 * dphiabs2dx)) / pow(nz, 2.0) / pow(phiabs2, 4.0);
+
+//         nxphiydy = -((pow(phidx, 2.0) * phidyy + 2.0 * phidx * phidxy * phidy) * nx * pow(phiabs2, 2.0) - pow(phidx, 2.0) * phidy * (nxy * pow(phiabs2, 2.0) + nx * 2.0 * phiabs2 * dphiabs2dy)) / pow(nx, 2.0) / pow(phiabs2, 4.0);
+//         nzphiydy = -((pow(phidz, 2.0) * phidyy + 2.0 * phidz * phidyz * phidy) * nz * pow(phiabs2, 2.0) - pow(phidz, 2.0) * phidy * (nyz * pow(phiabs2, 2.0) + nz * 2.0 * phiabs2 * dphiabs2dy)) / pow(nz, 2.0) / pow(phiabs2, 4.0);
+
+//         nxphizdz = -((pow(phidx, 2.0) * phidzz + 2.0 * phidx * phidxz * phidz) * nx * pow(phiabs2, 2.0) - pow(phidx, 2.0) * phidz * (nxz * pow(phiabs2, 2.0) + nx * 2.0 * phiabs2 * dphiabs2dz)) / pow(nx, 2.0) / pow(phiabs2, 4.0);
+//         nyphizdz = -((pow(phidy, 2.0) * phidzz + 2.0 * phidy * phidyz * phidz) * ny * pow(phiabs2, 2.0) - pow(phidy, 2.0) * phidz * (nyz * pow(phiabs2, 2.0) + ny * 2.0 * phiabs2 * dphiabs2dz)) / pow(ny, 2.0) / pow(phiabs2, 4.0);
+
+//         epsilon0 = sqrt(aij[jj][kk]) / 2.0;
+
+//         ep = epsilon0 * (1.0 + CC + tan(al0) * SS);
+
+//         dPdx = nxx * ny + nx * nyx + nyx * nz + ny * nzx + nxx * nz + nx * nzx;
+//         dPdy = nxy * ny + nx * nyy + nyy * nz + ny * nzy + nxy * nz + nx * nzy;
+//         dPdz = nxz * ny + nx * nyz + nyz * nz + ny * nzz + nxz * nz + nx * nzz;
+
+//         dPdphix = nxphix * ny + nx * nyphix + nyphix * nz + ny * nzphix + nxphix * nz + nx * nzphix;
+//         dPdphiy = nxphiy * ny + nx * nyphiy + nyphiy * nz + ny * nzphiy + nxphiy * nz + nx * nzphiy;
+//         dPdphiz = nxphiz * ny + nx * nyphiz + nyphiz * nz + ny * nzphiz + nxphiz * nz + nx * nzphiz;
+
+//         dPdphixdx = nxphixdx * ny + nxphix * nyx + nxx * nyphix + nx * nyphixdx + nyphixdx * nz + nyphix * nzx + nyx * nzphix + ny * nzphixdx + nxphixdx * nz + nxphix * nzx + nxx * nzphix + nx * nzphixdx;
+//         dPdphiydy = nxphiydy * ny + nxphiy * nyy + nxy * nyphiy + nx * nyphiydy + nyphiydy * nz + nyphiy * nzy + nyy * nzphiy + ny * nzphiydy + nxphiydy * nz + nxphiy * nzy + nxy * nzphiy + nx * nzphiydy;
+//         dPdphizdz = nxphizdz * ny + nxphiz * nyz + nxz * nyphiz + nx * nyphizdz + nyphizdz * nz + nyphiz * nzz + nyz * nzphiz + ny * nzphizdz + nxphizdz * nz + nxphiz * nzz + nxz * nzphiz + nx * nzphizdz;
+
+//         epdx = epsilon0 * (1.0 / (3.0 * CC) - tan(al0) / (3.0 * SS)) * dPdx;
+//         epdy = epsilon0 * (1.0 / (3.0 * CC) - tan(al0) / (3.0 * SS)) * dPdy;
+//         epdz = epsilon0 * (1.0 / (3.0 * CC) - tan(al0) / (3.0 * SS)) * dPdz;
+
+//         epdphix = epsilon0 * (1.0 / (3.0 * CC) - tan(al0) / (3.0 * SS)) * dPdphix;
+//         epdphiy = epsilon0 * (1.0 / (3.0 * CC) - tan(al0) / (3.0 * SS)) * dPdphiy;
+//         epdphiz = epsilon0 * (1.0 / (3.0 * CC) - tan(al0) / (3.0 * SS)) * dPdphiz;
+
+//         epdphixdx = 1.0 / 3.0 * epsilon0 * ((-1.0 / 3.0 / pow(CC, 3.0) - 1.0 / 3.0 * tan(al0) / 2.0 / pow(SS, 3.0)) * dPdx * dPdphix + dPdphixdx * (1.0 / CC - tan(al0) / SS));
+//         epdphiydy = 1.0 / 3.0 * epsilon0 * ((-1.0 / 3.0 / pow(CC, 3.0) - 1.0 / 3.0 * tan(al0) / 2.0 / pow(SS, 3.0)) * dPdy * dPdphiy + dPdphiydy * (1.0 / CC - tan(al0) / SS));
+//         epdphizdz = 1.0 / 3.0 * epsilon0 * ((-1.0 / 3.0 / pow(CC, 3.0) - 1.0 / 3.0 * tan(al0) / 2.0 / pow(SS, 3.0)) * dPdz * dPdphiz + dPdphizdz * (1.0 / CC - tan(al0) / SS));
+
+//         termx = ep * ep * phidxx + 2.0 * ep * epdx * phidx + ep * epdx * dphiabs2dx + ep * epdphixdx * phiabs2 + epdx * epdphix * phiabs2;
+//         termy = ep * ep * phidyy + 2.0 * ep * epdy * phidy + ep * epdy * dphiabs2dy + ep * epdphiydy * phiabs2 + epdy * epdphiy * phiabs2;
+//         termz = ep * ep * phidzz + 2.0 * ep * epdz * phidz + ep * epdz * dphiabs2dz + ep * epdphizdz * phiabs2 + epdz * epdphiz * phiabs2;
+
+//         termjjkk = termx + termy + termz;
