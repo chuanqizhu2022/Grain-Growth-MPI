@@ -31,10 +31,15 @@ double PI = 3.141592;        //π、計算カウント数
 double RR = 8.3145;          //ガス定数
 
 double aij[N][N]; //勾配エネルギー係数
-double wij[N][N]; //ペナルティー項の係数
-double mij[N][N]; //粒界の易動度
-double fij[N][N]; //粒界移動の駆動力
+double wij[N][N];
+double mij[N][N];
+double fij[N][N];
+double thij[N][N];
+double vpij[N][N];
+double etaij[N][N];
+double face[4][3];
 int phinum;
+double th, vp, eta;
 
 int i, j, k, l, ii, jj, kk, ll, it; //整数
 int ip, im, jp, jm, kp, km;         //整数
@@ -64,14 +69,28 @@ double phidx, phidy, phidz, phiabs, phiabs2;
 double phidxx, phidyy, phidzz;
 double phidxy, phidxz, phidyz;
 
+double xxp, xyp, xzp;
+double yxp, yyp, yzp;
+double zxp, zyp, zzp;
+double phidxp, phidyp, phidzp;
+double phidxpx, phidxpy, phidxpz;
+double phidypx, phidypy, phidypz;
+double phidzpx, phidzpy, phidzpz;
+
 double dphiabs2dx, dphiabs2dy, dphiabs2dz;
 double del, al0, al, alm, am;
-double nx, ny, nz;
+double nxp, nyp, nzp;
+double nxpx, nxpy, nxpz;
+double nypx, nypy, nypz;
+double nzpx, nzpy, nzpz;
 double ux, uy, uz, uu;
-double nxx, nxy, nxz, nyx, nyy, nyz, nzx, nzy, nzz;
 
-double nxphix, nyphix, nzphix, nxphiy, nyphiy, nzphiy, nxphiz, nyphiz, nzphiz;
-double nxphixdx, nyphixdx, nzphixdx, nxphiydy, nyphiydy, nzphiydy, nxphizdz, nyphizdz, nzphizdz;
+double nxpphix, nypphix, nzpphix;
+double nxpphiy, nypphiy, nzpphiy;
+double nxpphiz, nypphiz, nzpphiz;
+double nxpphixdx, nypphixdx, nzpphixdx;
+double nxpphiydy, nypphiydy, nzpphiydy;
+double nxpphizdz, nypphizdz, nzpphizdz;
 
 double PP, QQ, CC, SS;
 double dPdx, dPdy, dPdz;
@@ -107,9 +126,9 @@ int main(int argc, char *argv[])
     vm0 = 7.0e-6;
     delta = 7.0;
     mobi = 1.0;
-    zeta1 = 0.4;
-    zeta2 = 0.4;
-    zeta3 = 0.4;
+    zeta1 = 0.001;
+    zeta2 = 0.6;
+    zeta3 = 0.8;
     rp0 = 0.02;
     rp1 = 0.05;
     al0 = 35.0 / 180.0 * PI;
@@ -129,6 +148,9 @@ int main(int argc, char *argv[])
             aij[ii][jj] = A0;
             mij[ii][jj] = M0;
             fij[ii][jj] = 0.0;
+            thij[ii][jj] = 0.0;
+            vpij[ii][jj] = 0.0;
+            etaij[ii][jj] = 0.0;
             if ((ii == nm) || (jj == nm))
             {
                 fij[ii][jj] = F0;
@@ -146,6 +168,22 @@ int main(int argc, char *argv[])
             }
         }
     }
+
+    face[0][0] = 1.0;
+    face[0][1] = 1.0;
+    face[0][2] = 1.0;
+    face[1][0] = -1.0;
+    face[1][1] = 1.0;
+    face[1][2] = 1.0;
+    face[2][0] = 1.0;
+    face[2][1] = -1.0;
+    face[2][2] = 1.0;
+    face[3][0] = 1.0;
+    face[3][1] = 1.0;
+    face[3][2] = -1.0;
+
+    // thij[1][2] = PI / 4.0;
+    // thij[2][1] = PI / 4.0;
 
     int taskid,
         numworkers,
@@ -470,6 +508,20 @@ int main(int argc, char *argv[])
                         phidzii = ((*phi)[ii][i][j][kp] - (*phi)[ii][i][j][km]) / 2.0 / dx;
                         phiabsii = phidxii * phidxii + phidyii * phidyii + phidzii * phidzii;
 
+                        // thii = thij[ii][jj];
+                        // vpii = vpij[ii][jj];
+                        // etaii = etaij[ii][jj];
+
+                        // xxpii = cos(th) * cos(vp);
+                        // yxpii = sin(th) * cos(vp);
+                        // zxpii = sin(vp);
+                        // xypii = -sin(th) * cos(eta) - cos(th) * sin(vp) * sin(eta);
+                        // yypii = cos(th) * cos(eta) - sin(th) * sin(vp) * sin(eta);
+                        // zypii = cos(vp) * sin(eta);
+                        // xzpii = sin(eta) * sin(th) - cos(eta) * cos(th) * sin(vp);
+                        // yzpii = -sin(eta) * cos(th) - cos(eta) * sin(th) * sin(vp);
+                        // zzpii = cos(eta) * cos(vp);
+
                         for (n2 = 1; n2 <= (*phiNum)[i][j][k]; n2++)
                         {
                             jj = (*phiIdx)[n2][i][j][k];
@@ -505,49 +557,82 @@ int main(int argc, char *argv[])
 
                                 if ((ii + kk == 3))
                                 {
-                                    nx = phidx / phiabs;
-                                    ny = phidy / phiabs;
-                                    nz = phidz / phiabs;
+                                    th = thij[ii][kk];
+                                    vp = vpij[ii][kk];
+                                    eta = etaij[ii][kk];
 
-                                    al111 = acos(fabs(nx + ny + nz) / sqrt(3.0));
-                                    alm111 = acos(fabs(-nx + ny + nz) / sqrt(3.0));
-                                    al1m11 = acos(fabs(nx - ny + nz) / sqrt(3.0));
-                                    al11m1 = acos(fabs(nx + ny - nz) / sqrt(3.0));
+                                    xxp = cos(th) * cos(vp);
+                                    yxp = sin(th) * cos(vp);
+                                    zxp = sin(vp);
+                                    xyp = -sin(th) * cos(eta) - cos(th) * sin(vp) * sin(eta);
+                                    yyp = cos(th) * cos(eta) - sin(th) * sin(vp) * sin(eta);
+                                    zyp = cos(vp) * sin(eta);
+                                    xzp = sin(eta) * sin(th) - cos(eta) * cos(th) * sin(vp);
+                                    yzp = -sin(eta) * cos(th) - cos(eta) * sin(th) * sin(vp);
+                                    zzp = cos(eta) * cos(vp);
 
-                                    alm511 = acos(fabs(-5.0 * nx + ny + nz) / sqrt(27.0));
-                                    al1m51 = acos(fabs(nx - 5.0 * ny + nz) / sqrt(27.0));
-                                    al11m5 = acos(fabs(nx + ny - 5.0 * nz) / sqrt(27.0));
+                                    phidxp = phidx * xxp + phidy * yxp + phidz * zxp;
+                                    phidyp = phidx * xyp + phidy * yyp + phidz * zyp;
+                                    phidzp = phidx * xzp + phidy * yzp + phidz * zzp;
 
-                                    al511 = acos(fabs(5.0 * nx + ny + nz) / sqrt(27.0));
-                                    al15m1 = acos(fabs(nx + 5.0 * ny - nz) / sqrt(27.0));
-                                    al1m15 = acos(fabs(nx - ny + 5.0 * nz) / sqrt(27.0));
-                                    al51m1 = acos(fabs(5.0 * nx + ny - nz) / sqrt(27.0));
-                                    al151 = acos(fabs(nx + 5.0 * ny + nz) / sqrt(27.0));
-                                    alm115 = acos(fabs(-nx + ny + 5.0 * nz) / sqrt(27.0));
-                                    al5m11 = acos(fabs(5.0 * nx - ny + nz) / sqrt(27.0));
-                                    alm151 = acos(fabs(-nx + 5.0 * ny + nz) / sqrt(27.0));
-                                    al115 = acos(fabs(nx + ny + 5.0 * nz) / sqrt(27.0));
+                                    phidxpx = phidxx * xxp + phidxy * yxp + phidxz * zxp;
+                                    phidypx = phidxx * xyp + phidxy * yyp + phidxz * zyp;
+                                    phidzpx = phidxx * xzp + phidxy * yzp + phidxz * zzp;
 
-                                    double arrkk[16];
+                                    phidxpy = phidxy * xxp + phidyy * yxp + phidyz * zxp;
+                                    phidypy = phidxy * xyp + phidyy * yyp + phidyz * zyp;
+                                    phidzpy = phidxy * xzp + phidyy * yzp + phidyz * zzp;
+
+                                    phidxpz = phidxz * xxp + phidyz * yxp + phidzz * zxp;
+                                    phidypz = phidxz * xyp + phidyz * yyp + phidzz * zyp;
+                                    phidzpz = phidxz * xzp + phidyz * yzp + phidzz * zzp;
+
+                                    nxp = phidxp / phiabs;
+                                    nyp = phidyp / phiabs;
+                                    nzp = phidzp / phiabs;
+
+                                    for (l = 0; l <= 3; l++)
+                                    {
+                                    }
+                                    al111 = acos(fabs(nxp + nyp + nzp) / sqrt(3.0));
+                                    alm111 = acos(fabs(-nxp + nyp + nzp) / sqrt(3.0));
+                                    al1m11 = acos(fabs(nxp - nyp + nzp) / sqrt(3.0));
+                                    al11m1 = acos(fabs(nxp + nyp - nzp) / sqrt(3.0));
+
+                                    // alm511 = acos(fabs(-5.0 * nxp + nyp + nzp) / sqrt(27.0));
+                                    // al1m51 = acos(fabs(nxp - 5.0 * nyp + nzp) / sqrt(27.0));
+                                    // al11m5 = acos(fabs(nxp + nyp - 5.0 * nzp) / sqrt(27.0));
+
+                                    // al511 = acos(fabs(5.0 * nxp + nyp + nzp) / sqrt(27.0));
+                                    // al15m1 = acos(fabs(nxp + 5.0 * nyp - nzp) / sqrt(27.0));
+                                    // al1m15 = acos(fabs(nxp - nyp + 5.0 * nzp) / sqrt(27.0));
+                                    // al51m1 = acos(fabs(5.0 * nxp + nyp - nzp) / sqrt(27.0));
+                                    // al151 = acos(fabs(nxp + 5.0 * nyp + nzp) / sqrt(27.0));
+                                    // alm115 = acos(fabs(-nxp + nyp + 5.0 * nzp) / sqrt(27.0));
+                                    // al5m11 = acos(fabs(5.0 * nxp - nyp + nzp) / sqrt(27.0));
+                                    // alm151 = acos(fabs(-nxp + 5.0 * nyp + nzp) / sqrt(27.0));
+                                    // al115 = acos(fabs(nxp + nyp + 5.0 * nzp) / sqrt(27.0));
+
+                                    double arrkk[4];
                                     arrkk[0] = al111;
                                     arrkk[1] = alm111;
                                     arrkk[2] = al1m11;
                                     arrkk[3] = al11m1;
-                                    arrkk[4] = alm511;
-                                    arrkk[5] = al1m51;
-                                    arrkk[6] = al11m5;
-                                    arrkk[7] = al511;
-                                    arrkk[8] = al15m1;
-                                    arrkk[9] = al1m15;
-                                    arrkk[10] = al51m1;
-                                    arrkk[11] = al151;
-                                    arrkk[12] = alm115;
-                                    arrkk[13] = al5m11;
-                                    arrkk[14] = alm151;
-                                    arrkk[15] = al115;
+                                    // arrkk[4] = alm511;
+                                    // arrkk[5] = al1m51;
+                                    // arrkk[6] = al11m5;
+                                    // arrkk[7] = al511;
+                                    // arrkk[8] = al15m1;
+                                    // arrkk[9] = al1m15;
+                                    // arrkk[10] = al51m1;
+                                    // arrkk[11] = al151;
+                                    // arrkk[12] = alm115;
+                                    // arrkk[13] = al5m11;
+                                    // arrkk[14] = alm151;
+                                    // arrkk[15] = al115;
 
                                     min_val = arrkk[0];
-                                    for (l = 1; l <= 15; l++)
+                                    for (l = 1; l <= 3; l++)
                                     {
                                         if (min_val > arrkk[l])
                                         {
@@ -579,155 +664,155 @@ int main(int argc, char *argv[])
                                         uy = 1.0;
                                         uz = -1.0;
                                     }
-                                    else if (min_val == alm511)
-                                    {
-                                        ux = -5.0;
-                                        uy = 1.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == al1m51)
-                                    {
-                                        ux = 1.0;
-                                        uy = -5.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == al11m5)
-                                    {
-                                        ux = 1.0;
-                                        uy = 1.0;
-                                        uz = -5.0;
-                                    }
-                                    else if (min_val == al511)
-                                    {
-                                        ux = 5.0;
-                                        uy = 1.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == al15m1)
-                                    {
-                                        ux = 1.0;
-                                        uy = 5.0;
-                                        uz = -1.0;
-                                    }
-                                    else if (min_val == al1m15)
-                                    {
-                                        ux = 1.0;
-                                        uy = -1.0;
-                                        uz = 5.0;
-                                    }
-                                    else if (min_val == al51m1)
-                                    {
-                                        ux = 5.0;
-                                        uy = 1.0;
-                                        uz = -1.0;
-                                    }
-                                    else if (min_val == al151)
-                                    {
-                                        ux = 1.0;
-                                        uy = 5.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == alm115)
-                                    {
-                                        ux = -1.0;
-                                        uy = 1.0;
-                                        uz = 5.0;
-                                    }
-                                    else if (min_val == al5m11)
-                                    {
-                                        ux = 5.0;
-                                        uy = -1.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == alm151)
-                                    {
-                                        ux = -1.0;
-                                        uy = 5.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == al115)
-                                    {
-                                        ux = 1.0;
-                                        uy = 1.0;
-                                        uz = 5.0;
-                                    }
+                                    // else if (min_val == alm511)
+                                    // {
+                                    //     ux = -5.0;
+                                    //     uy = 1.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == al1m51)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = -5.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == al11m5)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = 1.0;
+                                    //     uz = -5.0;
+                                    // }
+                                    // else if (min_val == al511)
+                                    // {
+                                    //     ux = 5.0;
+                                    //     uy = 1.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == al15m1)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = 5.0;
+                                    //     uz = -1.0;
+                                    // }
+                                    // else if (min_val == al1m15)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = -1.0;
+                                    //     uz = 5.0;
+                                    // }
+                                    // else if (min_val == al51m1)
+                                    // {
+                                    //     ux = 5.0;
+                                    //     uy = 1.0;
+                                    //     uz = -1.0;
+                                    // }
+                                    // else if (min_val == al151)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = 5.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == alm115)
+                                    // {
+                                    //     ux = -1.0;
+                                    //     uy = 1.0;
+                                    //     uz = 5.0;
+                                    // }
+                                    // else if (min_val == al5m11)
+                                    // {
+                                    //     ux = 5.0;
+                                    //     uy = -1.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == alm151)
+                                    // {
+                                    //     ux = -1.0;
+                                    //     uy = 5.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == al115)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = 1.0;
+                                    //     uz = 5.0;
+                                    // }
 
                                     uu = ux * ux + uy * uy + uz * uz;
 
-                                    al = acos((nx * ux + ny * uy + nz * uz) / sqrt(uu));
+                                    al = acos((nxp * ux + nyp * uy + nzp * uz) / sqrt(uu));
                                     alm = acos(sqrt((1.0 + rp0 * rp0 * (1.0 - tan(al0) * tan(al0))) / (1.0 + tan(al0) * tan(al0))));
 
                                     if (fabs(cos(al)) >= cos(alm))
                                     {
                                         epsilon0 = sqrt(aij[ii][kk]);
 
-                                        PP = nx * ny * (ux * uy) + ny * nz * (uy * uz) + nx * nz * (ux * uz);
-                                        QQ = pow(nx * ux, 2.0) + pow(ny * uy, 2.0) + pow(nz * uz, 2.0);
+                                        PP = nxp * nyp * (ux * uy) + nyp * nzp * (uy * uz) + nxp * nzp * (ux * uz);
+                                        QQ = pow(nxp * ux, 2.0) + pow(nyp * uy, 2.0) + pow(nzp * uz, 2.0);
 
                                         CC = sqrt((2.0 * PP + QQ) / uu + rp0 * rp0);
                                         SS = sqrt((uu - QQ - 2.0 * PP) / uu + rp0 * rp0);
 
                                         ep = epsilon0 * (1.0 + del * (CC + tan(al0) * SS)) / am;
 
-                                        nxx = phidxx / phiabs - phidx / phiabs / phiabs2 * dphiabs2dx / 2.0;
-                                        nyx = phidxy / phiabs - phidy / phiabs / phiabs2 * dphiabs2dx / 2.0;
-                                        nzx = phidxz / phiabs - phidz / phiabs / phiabs2 * dphiabs2dx / 2.0;
+                                        nxpx = phidxpx / phiabs - phidxp / phiabs / phiabs2 * dphiabs2dx / 2.0;
+                                        nypx = phidypx / phiabs - phidyp / phiabs / phiabs2 * dphiabs2dx / 2.0;
+                                        nzpx = phidzpx / phiabs - phidzp / phiabs / phiabs2 * dphiabs2dx / 2.0;
 
-                                        nxy = phidxy / phiabs - phidx / phiabs / phiabs2 * dphiabs2dy / 2.0;
-                                        nyy = phidyy / phiabs - phidy / phiabs / phiabs2 * dphiabs2dy / 2.0;
-                                        nzy = phidyz / phiabs - phidz / phiabs / phiabs2 * dphiabs2dy / 2.0;
+                                        nxpy = phidxpy / phiabs - phidxp / phiabs / phiabs2 * dphiabs2dy / 2.0;
+                                        nypy = phidypy / phiabs - phidyp / phiabs / phiabs2 * dphiabs2dy / 2.0;
+                                        nzpy = phidzpy / phiabs - phidzp / phiabs / phiabs2 * dphiabs2dy / 2.0;
 
-                                        nxz = phidxz / phiabs - phidx / phiabs / phiabs2 * dphiabs2dz / 2.0;
-                                        nyz = phidyz / phiabs - phidy / phiabs / phiabs2 * dphiabs2dz / 2.0;
-                                        nzz = phidzz / phiabs - phidz / phiabs / phiabs2 * dphiabs2dz / 2.0;
+                                        nxpz = phidxpz / phiabs - phidxp / phiabs / phiabs2 * dphiabs2dz / 2.0;
+                                        nypz = phidypz / phiabs - phidyp / phiabs / phiabs2 * dphiabs2dz / 2.0;
+                                        nzpz = phidzpz / phiabs - phidzp / phiabs / phiabs2 * dphiabs2dz / 2.0;
 
-                                        nxphix = 1.0 / phiabs - phidx * phidx / phiabs / phiabs2;
-                                        nyphix = -phidy * phidx / phiabs / phiabs2;
-                                        nzphix = -phidz * phidx / phiabs / phiabs2;
+                                        nxpphix = -phidx * phidxp / phiabs / phiabs2 + xxp / phiabs;
+                                        nypphix = -phidx * phidyp / phiabs / phiabs2;
+                                        nzpphix = -phidx * phidzp / phiabs / phiabs2;
 
-                                        nxphiy = -phidx * phidy / phiabs / phiabs2;
-                                        nyphiy = 1.0 / phiabs - phidy * phidy / phiabs / phiabs2;
-                                        nzphiy = -phidz * phidy / phiabs / phiabs2;
+                                        nxpphiy = -phidy * phidxp / phiabs / phiabs2;
+                                        nypphiy = -phidy * phidyp / phiabs / phiabs2 + yyp / phiabs;
+                                        nzpphiy = -phidy * phidzp / phiabs / phiabs2;
 
-                                        nxphiz = -phidx * phidz / phiabs / phiabs2;
-                                        nyphiz = -phidy * phidz / phiabs / phiabs2;
-                                        nzphiz = 1.0 / phiabs - phidz * phidz / phiabs / phiabs2;
+                                        nxpphiz = -phidz * phidxp / phiabs / phiabs2;
+                                        nypphiz = -phidz * phidyp / phiabs / phiabs2;
+                                        nzpphiz = -phidz * phidzp / phiabs / phiabs2 + zzp / phiabs;
 
-                                        nxphixdx = -0.5 / phiabs / phiabs2 * dphiabs2dx - 1.0 / pow(phiabs2, 3.0) * (2.0 * phidx * phidxx * pow(phiabs, 3.0) - 1.5 * phidx * phidx * phiabs * dphiabs2dx);
-                                        nyphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidy + phidx * phidxy) * pow(phiabs, 3.0) - 1.5 * phidx * phidy * phiabs * dphiabs2dx);
-                                        nzphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidz + phidx * phidxz) * pow(phiabs, 3.0) - 1.5 * phidx * phidz * phiabs * dphiabs2dx);
+                                        nxpphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidxp + phidx * phidxpx) * pow(phiabs, 3.0) - 1.5 * phidx * phidxp * phiabs * dphiabs2dx) - 0.5 * xxp / phiabs / phiabs2 * dphiabs2dx;
+                                        nypphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidyp + phidx * phidypx) * pow(phiabs, 3.0) - 1.5 * phidx * phidyp * phiabs * dphiabs2dx);
+                                        nzpphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidzp + phidx * phidzpx) * pow(phiabs, 3.0) - 1.5 * phidx * phidzp * phiabs * dphiabs2dx);
 
-                                        nxphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidxy * phidy + phidx * phidyy) * pow(phiabs, 3.0) - 1.5 * phidx * phidy * phiabs * dphiabs2dy);
-                                        nyphiydy = -0.5 / phiabs / phiabs2 * dphiabs2dy - 1.0 / pow(phiabs2, 3.0) * (2.0 * phidy * phidyy * pow(phiabs, 3.0) - 1.5 * phidy * phidy * phiabs * dphiabs2dy);
-                                        nzphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidyz * phidy + phidz * phidyy) * pow(phiabs, 3.0) - 1.5 * phidz * phidy * phiabs * dphiabs2dy);
+                                        nxpphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidyy * phidxp + phidy * phidxpy) * pow(phiabs, 3.0) - 1.5 * phidy * phidxp * phiabs * dphiabs2dy);
+                                        nypphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidyy * phidyp + phidy * phidypy) * pow(phiabs, 3.0) - 1.5 * phidy * phidyp * phiabs * dphiabs2dy) - 0.5 * yyp / phiabs / phiabs2 * dphiabs2dy;
+                                        nzpphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidyy * phidzp + phidy * phidzpy) * pow(phiabs, 3.0) - 1.5 * phidy * phidzp * phiabs * dphiabs2dy);
 
-                                        nxphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidxz * phidz + phidx * phidzz) * pow(phiabs, 3.0) - 1.5 * phidx * phidz * phiabs * dphiabs2dz);
-                                        nyphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidyz * phidz + phidy * phidzz) * pow(phiabs, 3.0) - 1.5 * phidy * phidz * phiabs * dphiabs2dz);
-                                        nzphizdz = -0.5 / phiabs / phiabs2 * dphiabs2dz - 1.0 / pow(phiabs2, 3.0) * (2.0 * phidz * phidzz * pow(phiabs, 3.0) - 1.5 * phidz * phidz * phiabs * dphiabs2dz);
+                                        nxpphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidzz * phidxp + phidz * phidxpz) * pow(phiabs, 3.0) - 1.5 * phidz * phidxp * phiabs * dphiabs2dz);
+                                        nypphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidzz * phidyp + phidz * phidypz) * pow(phiabs, 3.0) - 1.5 * phidz * phidyp * phiabs * dphiabs2dz);
+                                        nzpphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidzz * phidzp + phidz * phidzpz) * pow(phiabs, 3.0) - 1.5 * phidz * phidzp * phiabs * dphiabs2dz) - 0.5 * zzp / phiabs / phiabs2 * dphiabs2dz;
 
-                                        dPdx = nxx * ny * (ux * uy) + nx * nyx * (ux * uy) + nyx * nz * (uy * uz) + ny * nzx * (uy * uz) + nxx * nz * (ux * uz) + nx * nzx * (ux * uz);
-                                        dPdy = nxy * ny * (ux * uy) + nx * nyy * (ux * uy) + nyy * nz * (uy * uz) + ny * nzy * (uy * uz) + nxy * nz * (ux * uz) + nx * nzy * (ux * uz);
-                                        dPdz = nxz * ny * (ux * uy) + nx * nyz * (ux * uy) + nyz * nz * (uy * uz) + ny * nzz * (uy * uz) + nxz * nz * (ux * uz) + nx * nzz * (ux * uz);
+                                        dPdx = nxpx * nyp * (ux * uy) + nxp * nypx * (ux * uy) + nypx * nzp * (uy * uz) + nyp * nzpx * (uy * uz) + nxpx * nzp * (ux * uz) + nxp * nzpx * (ux * uz);
+                                        dPdy = nxpy * nyp * (ux * uy) + nxp * nypy * (ux * uy) + nypy * nzp * (uy * uz) + nyp * nzpy * (uy * uz) + nxpy * nzp * (ux * uz) + nxp * nzpy * (ux * uz);
+                                        dPdz = nxpz * nyp * (ux * uy) + nxp * nypz * (ux * uy) + nypz * nzp * (uy * uz) + nyp * nzpz * (uy * uz) + nxpz * nzp * (ux * uz) + nxp * nzpz * (ux * uz);
 
-                                        dPdphix = nxphix * ny * (ux * uy) + nx * nyphix * (ux * uy) + nyphix * nz * (uy * uz) + ny * nzphix * (uy * uz) + nxphix * nz * (ux * uz) + nx * nzphix * (ux * uz);
-                                        dPdphiy = nxphiy * ny * (ux * uy) + nx * nyphiy * (ux * uy) + nyphiy * nz * (uy * uz) + ny * nzphiy * (uy * uz) + nxphiy * nz * (ux * uz) + nx * nzphiy * (ux * uz);
-                                        dPdphiz = nxphiz * ny * (ux * uy) + nx * nyphiz * (ux * uy) + nyphiz * nz * (uy * uz) + ny * nzphiz * (uy * uz) + nxphiz * nz * (ux * uz) + nx * nzphiz * (ux * uz);
+                                        dPdphix = nxpphix * nyp * (ux * uy) + nxp * nypphix * (ux * uy) + nypphix * nzp * (uy * uz) + nyp * nzpphix * (uy * uz) + nxpphix * nzp * (ux * uz) + nxp * nzpphix * (ux * uz);
+                                        dPdphiy = nxpphiy * nyp * (ux * uy) + nxp * nypphiy * (ux * uy) + nypphiy * nzp * (uy * uz) + nyp * nzpphiy * (uy * uz) + nxpphiy * nzp * (ux * uz) + nxp * nzpphiy * (ux * uz);
+                                        dPdphiz = nxpphiz * nyp * (ux * uy) + nxp * nypphiz * (ux * uy) + nypphiz * nzp * (uy * uz) + nyp * nzpphiz * (uy * uz) + nxpphiz * nzp * (ux * uz) + nxp * nzpphiz * (ux * uz);
 
-                                        dPdphixdx = nxphixdx * ny * (ux * uy) + nxphix * nyx * (ux * uy) + nxx * nyphix * (ux * uy) + nx * nyphixdx * (ux * uy) + nyphixdx * nz * (uy * uz) + nyphix * nzx * (uy * uz) + nyx * nzphix * (uy * uz) + ny * nzphixdx * (uy * uz) + nxphixdx * nz * (ux * uz) + nxphix * nzx * (ux * uz) + nxx * nzphix * (ux * uz) + nx * nzphixdx * (ux * uz);
-                                        dPdphiydy = nxphiydy * ny * (ux * uy) + nxphiy * nyy * (ux * uy) + nxy * nyphiy * (ux * uy) + nx * nyphiydy * (ux * uy) + nyphiydy * nz * (uy * uz) + nyphiy * nzy * (uy * uz) + nyy * nzphiy * (uy * uz) + ny * nzphiydy * (uy * uz) + nxphiydy * nz * (ux * uz) + nxphiy * nzy * (ux * uz) + nxy * nzphiy * (ux * uz) + nx * nzphiydy * (ux * uz);
-                                        dPdphizdz = nxphizdz * ny * (ux * uy) + nxphiz * nyz * (ux * uy) + nxz * nyphiz * (ux * uy) + nx * nyphizdz * (ux * uy) + nyphizdz * nz * (uy * uz) + nyphiz * nzz * (uy * uz) + nyz * nzphiz * (uy * uz) + ny * nzphizdz * (uy * uz) + nxphizdz * nz * (ux * uz) + nxphiz * nzz * (ux * uz) + nxz * nzphiz * (ux * uz) + nx * nzphizdz * (ux * uz);
+                                        dPdphixdx = nxpphixdx * nyp * (ux * uy) + nxpphix * nypx * (ux * uy) + nxpx * nypphix * (ux * uy) + nxp * nypphixdx * (ux * uy) + nypphixdx * nzp * (uy * uz) + nypphix * nzpx * (uy * uz) + nypx * nzpphix * (uy * uz) + nyp * nzpphixdx * (uy * uz) + nxpphixdx * nzp * (ux * uz) + nxpphix * nzpx * (ux * uz) + nxpx * nzpphix * (ux * uz) + nxp * nzpphixdx * (ux * uz);
+                                        dPdphiydy = nxpphiydy * nyp * (ux * uy) + nxpphiy * nypy * (ux * uy) + nxpy * nypphiy * (ux * uy) + nxp * nypphiydy * (ux * uy) + nypphiydy * nzp * (uy * uz) + nypphiy * nzpy * (uy * uz) + nypy * nzpphiy * (uy * uz) + nyp * nzpphiydy * (uy * uz) + nxpphiydy * nzp * (ux * uz) + nxpphiy * nzpy * (ux * uz) + nxpy * nzpphiy * (ux * uz) + nxp * nzpphiydy * (ux * uz);
+                                        dPdphizdz = nxpphizdz * nyp * (ux * uy) + nxpphiz * nypz * (ux * uy) + nxpz * nypphiz * (ux * uy) + nxp * nypphizdz * (ux * uy) + nypphizdz * nzp * (uy * uz) + nypphiz * nzpz * (uy * uz) + nypz * nzpphiz * (uy * uz) + nyp * nzpphizdz * (uy * uz) + nxpphizdz * nzp * (ux * uz) + nxpphiz * nzpz * (ux * uz) + nxpz * nzpphiz * (ux * uz) + nxp * nzpphizdz * (ux * uz);
 
-                                        dQdx = 2.0 * (ux * ux * nx * nxx + uy * uy * ny * nyx + uz * uz * nz * nzx);
-                                        dQdy = 2.0 * (ux * ux * nx * nxy + uy * uy * ny * nyy + uz * uz * nz * nzy);
-                                        dQdz = 2.0 * (ux * ux * nx * nxz + uy * uy * ny * nyz + uz * uz * nz * nzz);
+                                        dQdx = 2.0 * (ux * ux * nxp * nxpx + uy * uy * nyp * nypx + uz * uz * nzp * nzpx);
+                                        dQdy = 2.0 * (ux * ux * nxp * nxpy + uy * uy * nyp * nypy + uz * uz * nzp * nzpy);
+                                        dQdz = 2.0 * (ux * ux * nxp * nxpz + uy * uy * nyp * nypz + uz * uz * nzp * nzpz);
 
-                                        dQdphix = 2.0 * (ux * ux * nx * nxphix + uy * uy * ny * nyphix + uz * uz * nz * nzphix);
-                                        dQdphiy = 2.0 * (ux * ux * nx * nxphiy + uy * uy * ny * nyphiy + uz * uz * nz * nzphiy);
-                                        dQdphiz = 2.0 * (ux * ux * nx * nxphiz + uy * uy * ny * nyphiz + uz * uz * nz * nzphiz);
+                                        dQdphix = 2.0 * (ux * ux * nxp * nxpphix + uy * uy * nyp * nypphix + uz * uz * nzp * nzpphix);
+                                        dQdphiy = 2.0 * (ux * ux * nxp * nxpphiy + uy * uy * nyp * nypphiy + uz * uz * nzp * nzpphiy);
+                                        dQdphiz = 2.0 * (ux * ux * nxp * nxpphiz + uy * uy * nyp * nypphiz + uz * uz * nzp * nzpphiz);
 
-                                        dQdphixdx = 2.0 * (ux * ux * (nxx * nxphix + nx * nxphixdx) + uy * uy * (nyx * nyphix + ny * nyphixdx) + uz * uz * (nzx * nzphix + nz * nzphixdx));
-                                        dQdphiydy = 2.0 * (ux * ux * (nxy * nxphiy + nx * nxphiydy) + uy * uy * (nyy * nyphiy + ny * nyphiydy) + uz * uz * (nzy * nzphiy + nz * nzphiydy));
-                                        dQdphizdz = 2.0 * (ux * ux * (nxz * nxphiz + nx * nxphizdz) + uy * uy * (nyz * nyphiz + ny * nyphizdz) + uz * uz * (nzz * nzphiz + nz * nzphizdz));
+                                        dQdphixdx = 2.0 * (ux * ux * (nxpx * nxpphix + nxp * nxpphixdx) + uy * uy * (nypx * nypphix + nyp * nypphixdx) + uz * uz * (nzpx * nzpphix + nzp * nzpphixdx));
+                                        dQdphiydy = 2.0 * (ux * ux * (nxpy * nxpphiy + nxp * nxpphiydy) + uy * uy * (nypy * nypphiy + nyp * nypphiydy) + uz * uz * (nzpy * nzpphiy + nzp * nzpphiydy));
+                                        dQdphizdz = 2.0 * (ux * ux * (nxpz * nxpphiz + nxp * nxpphizdz) + uy * uy * (nypz * nypphiz + nyp * nypphizdz) + uz * uz * (nzpz * nzpphiz + nzp * nzpphizdz));
 
                                         epdx = epsilon0 * del * (1.0 / (2.0 * uu * CC) - tan(al0) / (2.0 * uu * SS)) * (2.0 * dPdx + dQdx) / am;
                                         epdy = epsilon0 * del * (1.0 / (2.0 * uu * CC) - tan(al0) / (2.0 * uu * SS)) * (2.0 * dPdy + dQdy) / am;
@@ -763,49 +848,79 @@ int main(int argc, char *argv[])
 
                                 if ((jj + kk == 3))
                                 {
-                                    nx = phidx / phiabs;
-                                    ny = phidy / phiabs;
-                                    nz = phidz / phiabs;
+                                    th = thij[ii][kk];
+                                    vp = vpij[ii][kk];
+                                    eta = etaij[ii][kk];
 
-                                    al111 = acos(fabs(nx + ny + nz) / sqrt(3.0));
-                                    alm111 = acos(fabs(-nx + ny + nz) / sqrt(3.0));
-                                    al1m11 = acos(fabs(nx - ny + nz) / sqrt(3.0));
-                                    al11m1 = acos(fabs(nx + ny - nz) / sqrt(3.0));
+                                    xxp = cos(th) * cos(vp);
+                                    yxp = sin(th) * cos(vp);
+                                    zxp = sin(vp);
+                                    xyp = -sin(th) * cos(eta) - cos(th) * sin(vp) * sin(eta);
+                                    yyp = cos(th) * cos(eta) - sin(th) * sin(vp) * sin(eta);
+                                    zyp = cos(vp) * sin(eta);
+                                    xzp = sin(eta) * sin(th) - cos(eta) * cos(th) * sin(vp);
+                                    yzp = -sin(eta) * cos(th) - cos(eta) * sin(th) * sin(vp);
+                                    zzp = cos(eta) * cos(vp);
 
-                                    alm511 = acos(fabs(-5.0 * nx + ny + nz) / sqrt(27.0));
-                                    al1m51 = acos(fabs(nx - 5.0 * ny + nz) / sqrt(27.0));
-                                    al11m5 = acos(fabs(nx + ny - 5.0 * nz) / sqrt(27.0));
+                                    phidxp = phidx * xxp + phidy * yxp + phidz * zxp;
+                                    phidyp = phidx * xyp + phidy * yyp + phidz * zyp;
+                                    phidzp = phidx * xzp + phidy * yzp + phidz * zzp;
 
-                                    al511 = acos(fabs(5.0 * nx + ny + nz) / sqrt(27.0));
-                                    al15m1 = acos(fabs(nx + 5.0 * ny - nz) / sqrt(27.0));
-                                    al1m15 = acos(fabs(nx - ny + 5.0 * nz) / sqrt(27.0));
-                                    al51m1 = acos(fabs(5.0 * nx + ny - nz) / sqrt(27.0));
-                                    al151 = acos(fabs(nx + 5.0 * ny + nz) / sqrt(27.0));
-                                    alm115 = acos(fabs(-nx + ny + 5.0 * nz) / sqrt(27.0));
-                                    al5m11 = acos(fabs(5.0 * nx - ny + nz) / sqrt(27.0));
-                                    alm151 = acos(fabs(-nx + 5.0 * ny + nz) / sqrt(27.0));
-                                    al115 = acos(fabs(nx + ny + 5.0 * nz) / sqrt(27.0));
+                                    phidxpx = phidxx * xxp + phidxy * yxp + phidxz * zxp;
+                                    phidypx = phidxx * xyp + phidxy * yyp + phidxz * zyp;
+                                    phidzpx = phidxx * xzp + phidxy * yzp + phidxz * zzp;
 
-                                    double arrkk[16];
+                                    phidxpy = phidxy * xxp + phidyy * yxp + phidyz * zxp;
+                                    phidypy = phidxy * xyp + phidyy * yyp + phidyz * zyp;
+                                    phidzpy = phidxy * xzp + phidyy * yzp + phidyz * zzp;
+
+                                    phidxpz = phidxz * xxp + phidyz * yxp + phidzz * zxp;
+                                    phidypz = phidxz * xyp + phidyz * yyp + phidzz * zyp;
+                                    phidzpz = phidxz * xzp + phidyz * yzp + phidzz * zzp;
+
+                                    nxp = phidxp / phiabs;
+                                    nyp = phidyp / phiabs;
+                                    nzp = phidzp / phiabs;
+
+                                    al111 = acos(fabs(nxp + nyp + nzp) / sqrt(3.0));
+                                    alm111 = acos(fabs(-nxp + nyp + nzp) / sqrt(3.0));
+                                    al1m11 = acos(fabs(nxp - nyp + nzp) / sqrt(3.0));
+                                    al11m1 = acos(fabs(nxp + nyp - nzp) / sqrt(3.0));
+
+                                    // alm511 = acos(fabs(-5.0 * nxp + nyp + nzp) / sqrt(27.0));
+                                    // al1m51 = acos(fabs(nxp - 5.0 * nyp + nzp) / sqrt(27.0));
+                                    // al11m5 = acos(fabs(nxp + nyp - 5.0 * nzp) / sqrt(27.0));
+
+                                    // al511 = acos(fabs(5.0 * nxp + nyp + nzp) / sqrt(27.0));
+                                    // al15m1 = acos(fabs(nxp + 5.0 * nyp - nzp) / sqrt(27.0));
+                                    // al1m15 = acos(fabs(nxp - nyp + 5.0 * nzp) / sqrt(27.0));
+                                    // al51m1 = acos(fabs(5.0 * nxp + nyp - nzp) / sqrt(27.0));
+                                    // al151 = acos(fabs(nxp + 5.0 * nyp + nzp) / sqrt(27.0));
+                                    // alm115 = acos(fabs(-nxp + nyp + 5.0 * nzp) / sqrt(27.0));
+                                    // al5m11 = acos(fabs(5.0 * nxp - nyp + nzp) / sqrt(27.0));
+                                    // alm151 = acos(fabs(-nxp + 5.0 * nyp + nzp) / sqrt(27.0));
+                                    // al115 = acos(fabs(nxp + nyp + 5.0 * nzp) / sqrt(27.0));
+
+                                    double arrkk[4];
                                     arrkk[0] = al111;
                                     arrkk[1] = alm111;
                                     arrkk[2] = al1m11;
                                     arrkk[3] = al11m1;
-                                    arrkk[4] = alm511;
-                                    arrkk[5] = al1m51;
-                                    arrkk[6] = al11m5;
-                                    arrkk[7] = al511;
-                                    arrkk[8] = al15m1;
-                                    arrkk[9] = al1m15;
-                                    arrkk[10] = al51m1;
-                                    arrkk[11] = al151;
-                                    arrkk[12] = alm115;
-                                    arrkk[13] = al5m11;
-                                    arrkk[14] = alm151;
-                                    arrkk[15] = al115;
+                                    // arrkk[4] = alm511;
+                                    // arrkk[5] = al1m51;
+                                    // arrkk[6] = al11m5;
+                                    // arrkk[7] = al511;
+                                    // arrkk[8] = al15m1;
+                                    // arrkk[9] = al1m15;
+                                    // arrkk[10] = al51m1;
+                                    // arrkk[11] = al151;
+                                    // arrkk[12] = alm115;
+                                    // arrkk[13] = al5m11;
+                                    // arrkk[14] = alm151;
+                                    // arrkk[15] = al115;
 
                                     min_val = arrkk[0];
-                                    for (l = 1; l <= 15; l++)
+                                    for (l = 1; l <= 3; l++)
                                     {
                                         if (min_val > arrkk[l])
                                         {
@@ -837,155 +952,154 @@ int main(int argc, char *argv[])
                                         uy = 1.0;
                                         uz = -1.0;
                                     }
-                                    else if (min_val == alm511)
-                                    {
-                                        ux = -5.0;
-                                        uy = 1.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == al1m51)
-                                    {
-                                        ux = 1.0;
-                                        uy = -5.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == al11m5)
-                                    {
-                                        ux = 1.0;
-                                        uy = 1.0;
-                                        uz = -5.0;
-                                    }
-                                    else if (min_val == al511)
-                                    {
-                                        ux = 5.0;
-                                        uy = 1.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == al15m1)
-                                    {
-                                        ux = 1.0;
-                                        uy = 5.0;
-                                        uz = -1.0;
-                                    }
-                                    else if (min_val == al1m15)
-                                    {
-                                        ux = 1.0;
-                                        uy = -1.0;
-                                        uz = 5.0;
-                                    }
-                                    else if (min_val == al51m1)
-                                    {
-                                        ux = 5.0;
-                                        uy = 1.0;
-                                        uz = -1.0;
-                                    }
-                                    else if (min_val == al151)
-                                    {
-                                        ux = 1.0;
-                                        uy = 5.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == alm115)
-                                    {
-                                        ux = 1.0;
-                                        uy = 1.0;
-                                        uz = 5.0;
-                                    }
-                                    else if (min_val == al5m11)
-                                    {
-                                        ux = 5.0;
-                                        uy = -1.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == alm151)
-                                    {
-                                        ux = -1.0;
-                                        uy = 5.0;
-                                        uz = 1.0;
-                                    }
-                                    else if (min_val == al115)
-                                    {
-                                        ux = 1.0;
-                                        uy = 1.0;
-                                        uz = 5.0;
-                                    }
+                                    // else if (min_val == alm511)
+                                    // {
+                                    //     ux = -5.0;
+                                    //     uy = 1.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == al1m51)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = -5.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == al11m5)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = 1.0;
+                                    //     uz = -5.0;
+                                    // }
+                                    // else if (min_val == al511)
+                                    // {
+                                    //     ux = 5.0;
+                                    //     uy = 1.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == al15m1)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = 5.0;
+                                    //     uz = -1.0;
+                                    // }
+                                    // else if (min_val == al1m15)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = -1.0;
+                                    //     uz = 5.0;
+                                    // }
+                                    // else if (min_val == al51m1)
+                                    // {
+                                    //     ux = 5.0;
+                                    //     uy = 1.0;
+                                    //     uz = -1.0;
+                                    // }
+                                    // else if (min_val == al151)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = 5.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == alm115)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = 1.0;
+                                    //     uz = 5.0;
+                                    // }
+                                    // else if (min_val == al5m11)
+                                    // {
+                                    //     ux = 5.0;
+                                    //     uy = -1.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == alm151)
+                                    // {
+                                    //     ux = -1.0;
+                                    //     uy = 5.0;
+                                    //     uz = 1.0;
+                                    // }
+                                    // else if (min_val == al115)
+                                    // {
+                                    //     ux = 1.0;
+                                    //     uy = 1.0;
+                                    //     uz = 5.0;
+                                    // }
 
                                     uu = ux * ux + uy * uy + uz * uz;
-
-                                    al = acos((nx * ux + ny * uy + nz * uz) / sqrt(uu));
+                                    al = acos((nxp * ux + nyp * uy + nzp * uz) / sqrt(uu));
                                     alm = acos(sqrt((1.0 + rp0 * rp0 * (1.0 - tan(al0) * tan(al0))) / (1.0 + tan(al0) * tan(al0))));
 
                                     if (fabs(cos(al)) >= cos(alm))
                                     {
                                         epsilon0 = sqrt(aij[jj][kk]);
 
-                                        PP = nx * ny * (ux * uy) + ny * nz * (uy * uz) + nx * nz * (ux * uz);
-                                        QQ = pow(nx * ux, 2.0) + pow(ny * uy, 2.0) + pow(nz * uz, 2.0);
+                                        PP = nxp * nyp * (ux * uy) + nyp * nzp * (uy * uz) + nxp * nzp * (ux * uz);
+                                        QQ = pow(nxp * ux, 2.0) + pow(nyp * uy, 2.0) + pow(nzp * uz, 2.0);
 
                                         CC = sqrt((2.0 * PP + QQ) / uu + rp0 * rp0);
                                         SS = sqrt((uu - QQ - 2.0 * PP) / uu + rp0 * rp0);
 
                                         ep = epsilon0 * (1.0 + del * (CC + tan(al0) * SS)) / am;
 
-                                        nxx = phidxx / phiabs - phidx / phiabs / phiabs2 * dphiabs2dx / 2.0;
-                                        nyx = phidxy / phiabs - phidy / phiabs / phiabs2 * dphiabs2dx / 2.0;
-                                        nzx = phidxz / phiabs - phidz / phiabs / phiabs2 * dphiabs2dx / 2.0;
+                                        nxpx = phidxpx / phiabs - phidxp / phiabs / phiabs2 * dphiabs2dx / 2.0;
+                                        nypx = phidypx / phiabs - phidyp / phiabs / phiabs2 * dphiabs2dx / 2.0;
+                                        nzpx = phidzpx / phiabs - phidzp / phiabs / phiabs2 * dphiabs2dx / 2.0;
 
-                                        nxy = phidxy / phiabs - phidx / phiabs / phiabs2 * dphiabs2dy / 2.0;
-                                        nyy = phidyy / phiabs - phidy / phiabs / phiabs2 * dphiabs2dy / 2.0;
-                                        nzy = phidyz / phiabs - phidz / phiabs / phiabs2 * dphiabs2dy / 2.0;
+                                        nxpy = phidxpy / phiabs - phidxp / phiabs / phiabs2 * dphiabs2dy / 2.0;
+                                        nypy = phidypy / phiabs - phidyp / phiabs / phiabs2 * dphiabs2dy / 2.0;
+                                        nzpy = phidzpy / phiabs - phidzp / phiabs / phiabs2 * dphiabs2dy / 2.0;
 
-                                        nxz = phidxz / phiabs - phidx / phiabs / phiabs2 * dphiabs2dz / 2.0;
-                                        nyz = phidyz / phiabs - phidy / phiabs / phiabs2 * dphiabs2dz / 2.0;
-                                        nzz = phidzz / phiabs - phidz / phiabs / phiabs2 * dphiabs2dz / 2.0;
+                                        nxpz = phidxpz / phiabs - phidxp / phiabs / phiabs2 * dphiabs2dz / 2.0;
+                                        nypz = phidypz / phiabs - phidyp / phiabs / phiabs2 * dphiabs2dz / 2.0;
+                                        nzpz = phidzpz / phiabs - phidzp / phiabs / phiabs2 * dphiabs2dz / 2.0;
 
-                                        nxphix = 1.0 / phiabs - phidx * phidx / phiabs / phiabs2;
-                                        nyphix = -phidy * phidx / phiabs / phiabs2;
-                                        nzphix = -phidz * phidx / phiabs / phiabs2;
+                                        nxpphix = -phidx * phidxp / phiabs / phiabs2 + xxp / phiabs;
+                                        nypphix = -phidx * phidyp / phiabs / phiabs2;
+                                        nzpphix = -phidx * phidzp / phiabs / phiabs2;
 
-                                        nxphiy = -phidx * phidy / phiabs / phiabs2;
-                                        nyphiy = 1.0 / phiabs - phidy * phidy / phiabs / phiabs2;
-                                        nzphiy = -phidz * phidy / phiabs / phiabs2;
+                                        nxpphiy = -phidy * phidxp / phiabs / phiabs2;
+                                        nypphiy = -phidy * phidyp / phiabs / phiabs2 + yyp / phiabs;
+                                        nzpphiy = -phidy * phidzp / phiabs / phiabs2;
 
-                                        nxphiz = -phidx * phidz / phiabs / phiabs2;
-                                        nyphiz = -phidy * phidz / phiabs / phiabs2;
-                                        nzphiz = 1.0 / phiabs - phidz * phidz / phiabs / phiabs2;
+                                        nxpphiz = -phidz * phidxp / phiabs / phiabs2;
+                                        nypphiz = -phidz * phidyp / phiabs / phiabs2;
+                                        nzpphiz = -phidz * phidzp / phiabs / phiabs2 + zzp / phiabs;
 
-                                        nxphixdx = -0.5 / phiabs / phiabs2 * dphiabs2dx - 1.0 / pow(phiabs2, 3.0) * (2.0 * phidx * phidxx * pow(phiabs, 3.0) - 1.5 * phidx * phidx * phiabs * dphiabs2dx);
-                                        nyphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidy + phidx * phidxy) * pow(phiabs, 3.0) - 1.5 * phidx * phidy * phiabs * dphiabs2dx);
-                                        nzphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidz + phidx * phidxz) * pow(phiabs, 3.0) - 1.5 * phidx * phidz * phiabs * dphiabs2dx);
+                                        nxpphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidxp + phidx * phidxpx) * pow(phiabs, 3.0) - 1.5 * phidx * phidxp * phiabs * dphiabs2dx) - 0.5 * xxp / phiabs / phiabs2 * dphiabs2dx;
+                                        nypphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidyp + phidx * phidypx) * pow(phiabs, 3.0) - 1.5 * phidx * phidyp * phiabs * dphiabs2dx);
+                                        nzpphixdx = -1.0 / pow(phiabs2, 3.0) * ((phidxx * phidzp + phidx * phidzpx) * pow(phiabs, 3.0) - 1.5 * phidx * phidzp * phiabs * dphiabs2dx);
 
-                                        nxphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidxy * phidy + phidx * phidyy) * pow(phiabs, 3.0) - 1.5 * phidx * phidy * phiabs * dphiabs2dy);
-                                        nyphiydy = -0.5 / phiabs / phiabs2 * dphiabs2dy - 1.0 / pow(phiabs2, 3.0) * (2.0 * phidy * phidyy * pow(phiabs, 3.0) - 1.5 * phidy * phidy * phiabs * dphiabs2dy);
-                                        nzphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidyz * phidy + phidz * phidyy) * pow(phiabs, 3.0) - 1.5 * phidz * phidy * phiabs * dphiabs2dy);
+                                        nxpphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidyy * phidxp + phidy * phidxpy) * pow(phiabs, 3.0) - 1.5 * phidy * phidxp * phiabs * dphiabs2dy);
+                                        nypphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidyy * phidyp + phidy * phidypy) * pow(phiabs, 3.0) - 1.5 * phidy * phidyp * phiabs * dphiabs2dy) - 0.5 * yyp / phiabs / phiabs2 * dphiabs2dy;
+                                        nzpphiydy = -1.0 / pow(phiabs2, 3.0) * ((phidyy * phidzp + phidy * phidzpy) * pow(phiabs, 3.0) - 1.5 * phidy * phidzp * phiabs * dphiabs2dy);
 
-                                        nxphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidxz * phidz + phidx * phidzz) * pow(phiabs, 3.0) - 1.5 * phidx * phidz * phiabs * dphiabs2dz);
-                                        nyphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidyz * phidz + phidy * phidzz) * pow(phiabs, 3.0) - 1.5 * phidy * phidz * phiabs * dphiabs2dz);
-                                        nzphizdz = -0.5 / phiabs / phiabs2 * dphiabs2dz - 1.0 / pow(phiabs2, 3.0) * (2.0 * phidz * phidzz * pow(phiabs, 3.0) - 1.5 * phidz * phidz * phiabs * dphiabs2dz);
+                                        nxpphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidzz * phidxp + phidz * phidxpz) * pow(phiabs, 3.0) - 1.5 * phidz * phidxp * phiabs * dphiabs2dz);
+                                        nypphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidzz * phidyp + phidz * phidypz) * pow(phiabs, 3.0) - 1.5 * phidz * phidyp * phiabs * dphiabs2dz);
+                                        nzpphizdz = -1.0 / pow(phiabs2, 3.0) * ((phidzz * phidzp + phidz * phidzpz) * pow(phiabs, 3.0) - 1.5 * phidz * phidzp * phiabs * dphiabs2dz) - 0.5 * zzp / phiabs / phiabs2 * dphiabs2dz;
 
-                                        dPdx = nxx * ny * (ux * uy) + nx * nyx * (ux * uy) + nyx * nz * (uy * uz) + ny * nzx * (uy * uz) + nxx * nz * (ux * uz) + nx * nzx * (ux * uz);
-                                        dPdy = nxy * ny * (ux * uy) + nx * nyy * (ux * uy) + nyy * nz * (uy * uz) + ny * nzy * (uy * uz) + nxy * nz * (ux * uz) + nx * nzy * (ux * uz);
-                                        dPdz = nxz * ny * (ux * uy) + nx * nyz * (ux * uy) + nyz * nz * (uy * uz) + ny * nzz * (uy * uz) + nxz * nz * (ux * uz) + nx * nzz * (ux * uz);
+                                        dPdx = nxpx * nyp * (ux * uy) + nxp * nypx * (ux * uy) + nypx * nzp * (uy * uz) + nyp * nzpx * (uy * uz) + nxpx * nzp * (ux * uz) + nxp * nzpx * (ux * uz);
+                                        dPdy = nxpy * nyp * (ux * uy) + nxp * nypy * (ux * uy) + nypy * nzp * (uy * uz) + nyp * nzpy * (uy * uz) + nxpy * nzp * (ux * uz) + nxp * nzpy * (ux * uz);
+                                        dPdz = nxpz * nyp * (ux * uy) + nxp * nypz * (ux * uy) + nypz * nzp * (uy * uz) + nyp * nzpz * (uy * uz) + nxpz * nzp * (ux * uz) + nxp * nzpz * (ux * uz);
 
-                                        dPdphix = nxphix * ny * (ux * uy) + nx * nyphix * (ux * uy) + nyphix * nz * (uy * uz) + ny * nzphix * (uy * uz) + nxphix * nz * (ux * uz) + nx * nzphix * (ux * uz);
-                                        dPdphiy = nxphiy * ny * (ux * uy) + nx * nyphiy * (ux * uy) + nyphiy * nz * (uy * uz) + ny * nzphiy * (uy * uz) + nxphiy * nz * (ux * uz) + nx * nzphiy * (ux * uz);
-                                        dPdphiz = nxphiz * ny * (ux * uy) + nx * nyphiz * (ux * uy) + nyphiz * nz * (uy * uz) + ny * nzphiz * (uy * uz) + nxphiz * nz * (ux * uz) + nx * nzphiz * (ux * uz);
+                                        dPdphix = nxpphix * nyp * (ux * uy) + nxp * nypphix * (ux * uy) + nypphix * nzp * (uy * uz) + nyp * nzpphix * (uy * uz) + nxpphix * nzp * (ux * uz) + nxp * nzpphix * (ux * uz);
+                                        dPdphiy = nxpphiy * nyp * (ux * uy) + nxp * nypphiy * (ux * uy) + nypphiy * nzp * (uy * uz) + nyp * nzpphiy * (uy * uz) + nxpphiy * nzp * (ux * uz) + nxp * nzpphiy * (ux * uz);
+                                        dPdphiz = nxpphiz * nyp * (ux * uy) + nxp * nypphiz * (ux * uy) + nypphiz * nzp * (uy * uz) + nyp * nzpphiz * (uy * uz) + nxpphiz * nzp * (ux * uz) + nxp * nzpphiz * (ux * uz);
 
-                                        dPdphixdx = nxphixdx * ny * (ux * uy) + nxphix * nyx * (ux * uy) + nxx * nyphix * (ux * uy) + nx * nyphixdx * (ux * uy) + nyphixdx * nz * (uy * uz) + nyphix * nzx * (uy * uz) + nyx * nzphix * (uy * uz) + ny * nzphixdx * (uy * uz) + nxphixdx * nz * (ux * uz) + nxphix * nzx * (ux * uz) + nxx * nzphix * (ux * uz) + nx * nzphixdx * (ux * uz);
-                                        dPdphiydy = nxphiydy * ny * (ux * uy) + nxphiy * nyy * (ux * uy) + nxy * nyphiy * (ux * uy) + nx * nyphiydy * (ux * uy) + nyphiydy * nz * (uy * uz) + nyphiy * nzy * (uy * uz) + nyy * nzphiy * (uy * uz) + ny * nzphiydy * (uy * uz) + nxphiydy * nz * (ux * uz) + nxphiy * nzy * (ux * uz) + nxy * nzphiy * (ux * uz) + nx * nzphiydy * (ux * uz);
-                                        dPdphizdz = nxphizdz * ny * (ux * uy) + nxphiz * nyz * (ux * uy) + nxz * nyphiz * (ux * uy) + nx * nyphizdz * (ux * uy) + nyphizdz * nz * (uy * uz) + nyphiz * nzz * (uy * uz) + nyz * nzphiz * (uy * uz) + ny * nzphizdz * (uy * uz) + nxphizdz * nz * (ux * uz) + nxphiz * nzz * (ux * uz) + nxz * nzphiz * (ux * uz) + nx * nzphizdz * (ux * uz);
+                                        dPdphixdx = nxpphixdx * nyp * (ux * uy) + nxpphix * nypx * (ux * uy) + nxpx * nypphix * (ux * uy) + nxp * nypphixdx * (ux * uy) + nypphixdx * nzp * (uy * uz) + nypphix * nzpx * (uy * uz) + nypx * nzpphix * (uy * uz) + nyp * nzpphixdx * (uy * uz) + nxpphixdx * nzp * (ux * uz) + nxpphix * nzpx * (ux * uz) + nxpx * nzpphix * (ux * uz) + nxp * nzpphixdx * (ux * uz);
+                                        dPdphiydy = nxpphiydy * nyp * (ux * uy) + nxpphiy * nypy * (ux * uy) + nxpy * nypphiy * (ux * uy) + nxp * nypphiydy * (ux * uy) + nypphiydy * nzp * (uy * uz) + nypphiy * nzpy * (uy * uz) + nypy * nzpphiy * (uy * uz) + nyp * nzpphiydy * (uy * uz) + nxpphiydy * nzp * (ux * uz) + nxpphiy * nzpy * (ux * uz) + nxpy * nzpphiy * (ux * uz) + nxp * nzpphiydy * (ux * uz);
+                                        dPdphizdz = nxpphizdz * nyp * (ux * uy) + nxpphiz * nypz * (ux * uy) + nxpz * nypphiz * (ux * uy) + nxp * nypphizdz * (ux * uy) + nypphizdz * nzp * (uy * uz) + nypphiz * nzpz * (uy * uz) + nypz * nzpphiz * (uy * uz) + nyp * nzpphizdz * (uy * uz) + nxpphizdz * nzp * (ux * uz) + nxpphiz * nzpz * (ux * uz) + nxpz * nzpphiz * (ux * uz) + nxp * nzpphizdz * (ux * uz);
 
-                                        dQdx = ux * ux * 2.0 * nx * nxx + uy * uy * 2.0 * ny * nyx + uz * uz * 2.0 * nz * nzx;
-                                        dQdy = ux * ux * 2.0 * nx * nxy + uy * uy * 2.0 * ny * nyy + uz * uz * 2.0 * nz * nzy;
-                                        dQdz = ux * ux * 2.0 * nx * nxz + uy * uy * 2.0 * ny * nyz + uz * uz * 2.0 * nz * nzz;
+                                        dQdx = 2.0 * (ux * ux * nxp * nxpx + uy * uy * nyp * nypx + uz * uz * nzp * nzpx);
+                                        dQdy = 2.0 * (ux * ux * nxp * nxpy + uy * uy * nyp * nypy + uz * uz * nzp * nzpy);
+                                        dQdz = 2.0 * (ux * ux * nxp * nxpz + uy * uy * nyp * nypz + uz * uz * nzp * nzpz);
 
-                                        dQdphix = ux * ux * 2.0 * nx * nxphix + uy * uy * 2.0 * ny * nyphix + uz * uz * 2.0 * nz * nzphix;
-                                        dQdphiy = ux * ux * 2.0 * nx * nxphiy + uy * uy * 2.0 * ny * nyphiy + uz * uz * 2.0 * nz * nzphiy;
-                                        dQdphiz = ux * ux * 2.0 * nx * nxphiz + uy * uy * 2.0 * ny * nyphiz + uz * uz * 2.0 * nz * nzphiz;
+                                        dQdphix = 2.0 * (ux * ux * nxp * nxpphix + uy * uy * nyp * nypphix + uz * uz * nzp * nzpphix);
+                                        dQdphiy = 2.0 * (ux * ux * nxp * nxpphiy + uy * uy * nyp * nypphiy + uz * uz * nzp * nzpphiy);
+                                        dQdphiz = 2.0 * (ux * ux * nxp * nxpphiz + uy * uy * nyp * nypphiz + uz * uz * nzp * nzpphiz);
 
-                                        dQdphixdx = 2.0 * (ux * ux * (nxx * nxphix + nx * nxphixdx) + uy * uy * (nyx * nyphix + ny * nyphixdx) + uz * uz * (nzx * nzphix + nz * nzphixdx));
-                                        dQdphiydy = 2.0 * (ux * ux * (nxy * nxphiy + nx * nxphiydy) + uy * uy * (nyy * nyphiy + ny * nyphiydy) + uz * uz * (nzy * nzphiy + nz * nzphiydy));
-                                        dQdphizdz = 2.0 * (ux * ux * (nxz * nxphiz + nx * nxphizdz) + uy * uy * (nyz * nyphiz + ny * nyphizdz) + uz * uz * (nzz * nzphiz + nz * nzphizdz));
+                                        dQdphixdx = 2.0 * (ux * ux * (nxpx * nxpphix + nxp * nxpphixdx) + uy * uy * (nypx * nypphix + nyp * nypphixdx) + uz * uz * (nzpx * nzpphix + nzp * nzpphixdx));
+                                        dQdphiydy = 2.0 * (ux * ux * (nxpy * nxpphiy + nxp * nxpphiydy) + uy * uy * (nypy * nypphiy + nyp * nypphiydy) + uz * uz * (nzpy * nzpphiy + nzp * nzpphiydy));
+                                        dQdphizdz = 2.0 * (ux * ux * (nxpz * nxpphiz + nxp * nxpphizdz) + uy * uy * (nypz * nypphiz + nyp * nypphizdz) + uz * uz * (nzpz * nzpphiz + nzp * nzpphizdz));
 
                                         epdx = epsilon0 * del * (1.0 / (2.0 * uu * CC) - tan(al0) / (2.0 * uu * SS)) * (2.0 * dPdx + dQdx) / am;
                                         epdy = epsilon0 * del * (1.0 / (2.0 * uu * CC) - tan(al0) / (2.0 * uu * SS)) * (2.0 * dPdy + dQdy) / am;
@@ -1022,76 +1136,76 @@ int main(int argc, char *argv[])
                                 sum1 += 0.5 * (termiikk - termjjkk) + (wij[ii][kk] - wij[jj][kk]) * (*phi)[kk][i][j][k];
                                 // sum1 += 0.5 * (aij[ii][kk] - aij[jj][kk]) * ((*phi)[kk][ip][j][k] + (*phi)[kk][im][j][k] + (*phi)[kk][i][jp][k] + (*phi)[kk][i][jm][k] + (*phi)[kk][i][j][kp] + (*phi)[kk][i][j][km] - 6.0 * (*phi)[kk][i][j][k]) + (wij[ii][kk] - wij[jj][kk]) * (*phi)[kk][i][j][k]; //[式(4.31)の一部]
                             }
-                            if ((ii + jj) == 3)
-                            {
-                                nxii = phidxii / sqrt(phiabsii);
-                                nyii = phidyii / sqrt(phiabsii);
-                                nzii = phidzii / sqrt(phiabsii);
+                            // if ((ii + jj) == 3)
+                            // {
+                            //     nxii = phidxii / sqrt(phiabsii);
+                            //     nyii = phidyii / sqrt(phiabsii);
+                            //     nzii = phidzii / sqrt(phiabsii);
 
-                                al111 = acos(fabs(nxii + nyii + nzii) / sqrt(3.0));
-                                alm111 = acos(fabs(-nxii + nyii + nzii) / sqrt(3.0));
-                                al1m11 = acos(fabs(nxii - nyii + nzii) / sqrt(3.0));
-                                al11m1 = acos(fabs(nxii + nyii - nzii) / sqrt(3.0));
+                            //     al111 = acos(fabs(nxii + nyii + nzii) / sqrt(3.0));
+                            //     alm111 = acos(fabs(-nxii + nyii + nzii) / sqrt(3.0));
+                            //     al1m11 = acos(fabs(nxii - nyii + nzii) / sqrt(3.0));
+                            //     al11m1 = acos(fabs(nxii + nyii - nzii) / sqrt(3.0));
 
-                                alm511 = acos(fabs(-5.0 * nxii + nyii + nzii) / sqrt(27.0));
-                                al1m51 = acos(fabs(nxii - 5.0 * nyii + nzii) / sqrt(27.0));
-                                al11m5 = acos(fabs(nxii + nyii - 5.0 * nzii) / sqrt(27.0));
+                            //     alm511 = acos(fabs(-5.0 * nxii + nyii + nzii) / sqrt(27.0));
+                            //     al1m51 = acos(fabs(nxii - 5.0 * nyii + nzii) / sqrt(27.0));
+                            //     al11m5 = acos(fabs(nxii + nyii - 5.0 * nzii) / sqrt(27.0));
 
-                                al511 = acos(fabs(5.0 * nxii + nyii + nzii) / sqrt(27.0));
-                                al15m1 = acos(fabs(nxii + 5.0 * nyii - nzii) / sqrt(27.0));
-                                al1m15 = acos(fabs(nxii - nyii + 5.0 * nzii) / sqrt(27.0));
-                                al51m1 = acos(fabs(5.0 * nxii + nyii - nzii) / sqrt(27.0));
-                                al151 = acos(fabs(nxii + 5.0 * nyii + nzii) / sqrt(27.0));
-                                alm115 = acos(fabs(-nxii + nyii + 5.0 * nzii) / sqrt(27.0));
-                                al5m11 = acos(fabs(5.0 * nxii - nyii + nzii) / sqrt(27.0));
-                                alm151 = acos(fabs(-nxii + 5.0 * nyii + nzii) / sqrt(27.0));
-                                al115 = acos(fabs(nxii + nyii + 5.0 * nzii) / sqrt(27.0));
+                            //     al511 = acos(fabs(5.0 * nxii + nyii + nzii) / sqrt(27.0));
+                            //     al15m1 = acos(fabs(nxii + 5.0 * nyii - nzii) / sqrt(27.0));
+                            //     al1m15 = acos(fabs(nxii - nyii + 5.0 * nzii) / sqrt(27.0));
+                            //     al51m1 = acos(fabs(5.0 * nxii + nyii - nzii) / sqrt(27.0));
+                            //     al151 = acos(fabs(nxii + 5.0 * nyii + nzii) / sqrt(27.0));
+                            //     alm115 = acos(fabs(-nxii + nyii + 5.0 * nzii) / sqrt(27.0));
+                            //     al5m11 = acos(fabs(5.0 * nxii - nyii + nzii) / sqrt(27.0));
+                            //     alm151 = acos(fabs(-nxii + 5.0 * nyii + nzii) / sqrt(27.0));
+                            //     al115 = acos(fabs(nxii + nyii + 5.0 * nzii) / sqrt(27.0));
 
-                                double arr[16];
-                                arr[0] = al111;
-                                arr[1] = alm111;
-                                arr[2] = al1m11;
-                                arr[3] = al11m1;
-                                arr[4] = alm511;
-                                arr[5] = al1m51;
-                                arr[6] = al11m5;
-                                arr[7] = al511;
-                                arr[8] = al15m1;
-                                arr[9] = al1m15;
-                                arr[10] = al51m1;
-                                arr[11] = al151;
-                                arr[12] = alm115;
-                                arr[13] = al5m11;
-                                arr[14] = alm151;
-                                arr[15] = al115;
+                            //     double arr[16];
+                            //     arr[0] = al111;
+                            //     arr[1] = alm111;
+                            //     arr[2] = al1m11;
+                            //     arr[3] = al11m1;
+                            //     arr[4] = alm511;
+                            //     arr[5] = al1m51;
+                            //     arr[6] = al11m5;
+                            //     arr[7] = al511;
+                            //     arr[8] = al15m1;
+                            //     arr[9] = al1m15;
+                            //     arr[10] = al51m1;
+                            //     arr[11] = al151;
+                            //     arr[12] = alm115;
+                            //     arr[13] = al5m11;
+                            //     arr[14] = alm151;
+                            //     arr[15] = al115;
 
-                                min_val = arr[0];
-                                for (l = 1; l <= 15; l++)
-                                {
-                                    if (min_val > arr[l])
-                                    {
-                                        min_val = arr[l];
-                                    }
-                                }
+                            //     min_val = arr[0];
+                            //     for (l = 1; l <= 15; l++)
+                            //     {
+                            //         if (min_val > arr[l])
+                            //         {
+                            //             min_val = arr[l];
+                            //         }
+                            //     }
 
-                                if (min_val == al111)
-                                {
-                                    miijj = mij[ii][jj] * (zeta1 + (1 - zeta1) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
-                                }
-                                if ((min_val == alm111) || (min_val == al1m11) || (min_val == al11m1) || (min_val == alm511) || (min_val == al1m51) || (min_val == al11m5))
-                                {
-                                    miijj = mij[ii][jj] * (zeta2 + (1 - zeta2) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
-                                }
-                                if ((min_val == al511) || (min_val == al15m1) || (min_val == al1m15) || (min_val == al51m1) || (min_val == al151) || (min_val == alm115) || (min_val == al5m11) || (min_val == alm151) || (min_val == al115))
-                                {
-                                    miijj = mij[ii][jj] * (zeta3 + (1 - zeta3) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
-                                }
-                            }
-                            else
-                            {
-                                miijj = mij[ii][jj];
-                            }
-                            // miijj = mij[ii][jj];
+                            //     if (min_val == al111)
+                            //     {
+                            //         miijj = mij[ii][jj] * (zeta1 + (1 - zeta1) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
+                            //     }
+                            //     if ((min_val == alm111) || (min_val == al1m11) || (min_val == al11m1) || (min_val == alm511) || (min_val == al1m51) || (min_val == al11m5))
+                            //     {
+                            //         miijj = mij[ii][jj] * (zeta2 + (1 - zeta2) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
+                            //     }
+                            //     if ((min_val == al511) || (min_val == al15m1) || (min_val == al1m15) || (min_val == al51m1) || (min_val == al151) || (min_val == alm115) || (min_val == al5m11) || (min_val == alm151) || (min_val == al115))
+                            //     {
+                            //         miijj = mij[ii][jj] * (zeta3 + (1 - zeta3) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
+                            //     }
+                            // }
+                            // else
+                            // {
+                            //     miijj = mij[ii][jj];
+                            // }
+                            miijj = mij[ii][jj];
                             pddtt += -2.0 * miijj / (double)((*phiNum)[i][j][k]) * (sum1 - 8.0 / PI * fij[ii][jj] * sqrt((*phi)[ii][i][j][k] * (*phi)[jj][i][j][k]));
                             //フェーズフィールドの発展方程式[式(4.31)]
                         }
