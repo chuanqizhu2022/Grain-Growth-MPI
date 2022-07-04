@@ -37,7 +37,6 @@ double fij[N][N];
 double thij[N][N];
 double vpij[N][N];
 double etaij[N][N];
-double face[4][3];
 int phinum;
 double th, vp, eta;
 
@@ -169,18 +168,18 @@ int main(int argc, char *argv[])
         }
     }
 
-    face[0][0] = 1.0;
-    face[0][1] = 1.0;
-    face[0][2] = 1.0;
-    face[1][0] = -1.0;
-    face[1][1] = 1.0;
-    face[1][2] = 1.0;
-    face[2][0] = 1.0;
-    face[2][1] = -1.0;
-    face[2][2] = 1.0;
-    face[3][0] = 1.0;
-    face[3][1] = 1.0;
-    face[3][2] = -1.0;
+    // face[0][0] = 1.0;
+    // face[0][1] = 1.0;
+    // face[0][2] = 1.0;
+    // face[1][0] = -1.0;
+    // face[1][1] = 1.0;
+    // face[1][2] = 1.0;
+    // face[2][0] = 1.0;
+    // face[2][1] = -1.0;
+    // face[2][2] = 1.0;
+    // face[3][0] = 1.0;
+    // face[3][1] = 1.0;
+    // face[3][2] = -1.0;
 
     // thij[1][2] = PI / 4.0;
     // thij[2][1] = PI / 4.0;
@@ -591,9 +590,6 @@ int main(int argc, char *argv[])
                                     nyp = phidyp / phiabs;
                                     nzp = phidzp / phiabs;
 
-                                    for (l = 0; l <= 3; l++)
-                                    {
-                                    }
                                     al111 = acos(fabs(nxp + nyp + nzp) / sqrt(3.0));
                                     alm111 = acos(fabs(-nxp + nyp + nzp) / sqrt(3.0));
                                     al1m11 = acos(fabs(nxp - nyp + nzp) / sqrt(3.0));
