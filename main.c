@@ -107,9 +107,9 @@ int main(int argc, char *argv[])
     vm0 = 7.0e-6;
     delta = 7.0;
     mobi = 1.0;
-    zeta1 = 0.001;
-    zeta2 = 0.6;
-    zeta3 = 0.8;
+    zeta1 = 0.4;
+    zeta2 = 0.4;
+    zeta3 = 0.4;
     rp0 = 0.02;
     rp1 = 0.05;
     al0 = 35.0 / 180.0 * PI;
@@ -499,13 +499,7 @@ int main(int argc, char *argv[])
                                 dphiabs2dy = 2.0 * (phidx * phidxy + phidy * phidyy + phidz * phidyz);
                                 dphiabs2dz = 2.0 * (phidx * phidxz + phidy * phidyz + phidz * phidzz);
 
-                                ux = -1.0;
-                                uy = 1.0;
-                                uz = 1.0;
-
                                 del = 5.0;
-
-                                uu = ux * ux + uy * uy + uz * uz;
 
                                 am = (1.0 + del * sqrt(1.0 + 2.0 * rp0 * rp0) * (1.0 + tan(al0) * tan(al0)));
 
@@ -515,50 +509,150 @@ int main(int argc, char *argv[])
                                     ny = phidy / phiabs;
                                     nz = phidz / phiabs;
 
-                                    // al111kk = acos(fabs(nx + ny + nz) / sqrt(3.0));
-                                    // alm111kk = acos(fabs(-nx + ny + nz) / sqrt(3.0));
-                                    // al1m11kk = acos(fabs(nxii - ny + nz) / sqrt(3.0));
-                                    // al11m1kk = acos(fabs(nx + ny - nz) / sqrt(3.0));
+                                    al111 = acos(fabs(nx + ny + nz) / sqrt(3.0));
+                                    alm111 = acos(fabs(-nx + ny + nz) / sqrt(3.0));
+                                    al1m11 = acos(fabs(nx - ny + nz) / sqrt(3.0));
+                                    al11m1 = acos(fabs(nx + ny - nz) / sqrt(3.0));
 
-                                    // double arrkk[4];
-                                    // arrkk[0] = al111kk;
-                                    // arrkk[1] = alm111kk;
-                                    // arrkk[2] = al1m11kk;
-                                    // arrkk[3] = al11m1kk;
+                                    alm511 = acos(fabs(-5.0 * nx + ny + nz) / sqrt(27.0));
+                                    al1m51 = acos(fabs(nx - 5.0 * ny + nz) / sqrt(27.0));
+                                    al11m5 = acos(fabs(nx + ny - 5.0 * nz) / sqrt(27.0));
 
-                                    // min_val = arr[0];
-                                    // for (l = 1; l <= 3; l++)
-                                    // {
-                                    //     if (min_val > arr[l])
-                                    //     {
-                                    //         min_val = arr[l];
-                                    //     }
-                                    // }
+                                    al511 = acos(fabs(5.0 * nx + ny + nz) / sqrt(27.0));
+                                    al15m1 = acos(fabs(nx + 5.0 * ny - nz) / sqrt(27.0));
+                                    al1m15 = acos(fabs(nx - ny + 5.0 * nz) / sqrt(27.0));
+                                    al51m1 = acos(fabs(5.0 * nx + ny - nz) / sqrt(27.0));
+                                    al151 = acos(fabs(nx + 5.0 * ny + nz) / sqrt(27.0));
+                                    alm115 = acos(fabs(-nx + ny + 5.0 * nz) / sqrt(27.0));
+                                    al5m11 = acos(fabs(5.0 * nx - ny + nz) / sqrt(27.0));
+                                    alm151 = acos(fabs(-nx + 5.0 * ny + nz) / sqrt(27.0));
+                                    al115 = acos(fabs(nx + ny + 5.0 * nz) / sqrt(27.0));
 
-                                    // if (min_val == al111kk)
-                                    // {
-                                    //     ux = 1.0;
-                                    //     uy = 1.0;
-                                    //     uz = 1.0;
-                                    // }
-                                    // else if (min_val == alm111kk)
-                                    // {
-                                    //     ux = -1.0;
-                                    //     uy = 1.0;
-                                    //     uz = 1.0;
-                                    // }
-                                    // else if (min_val == al1m11kk)
-                                    // {
-                                    //     ux = 1.0;
-                                    //     uy = -1.0;
-                                    //     uz = 1.0;
-                                    // }
-                                    // else if (min_val == al11m1kk)
-                                    // {
-                                    //     ux = 1.0;
-                                    //     uy = 1.0;
-                                    //     uz = -1.0;
-                                    // }
+                                    double arrkk[16];
+                                    arrkk[0] = al111;
+                                    arrkk[1] = alm111;
+                                    arrkk[2] = al1m11;
+                                    arrkk[3] = al11m1;
+                                    arrkk[4] = alm511;
+                                    arrkk[5] = al1m51;
+                                    arrkk[6] = al11m5;
+                                    arrkk[7] = al511;
+                                    arrkk[8] = al15m1;
+                                    arrkk[9] = al1m15;
+                                    arrkk[10] = al51m1;
+                                    arrkk[11] = al151;
+                                    arrkk[12] = alm115;
+                                    arrkk[13] = al5m11;
+                                    arrkk[14] = alm151;
+                                    arrkk[15] = al115;
+
+                                    min_val = arrkk[0];
+                                    for (l = 1; l <= 15; l++)
+                                    {
+                                        if (min_val > arrkk[l])
+                                        {
+                                            min_val = arrkk[l];
+                                        }
+                                    }
+
+                                    if (min_val == al111)
+                                    {
+                                        ux = 1.0;
+                                        uy = 1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == alm111)
+                                    {
+                                        ux = -1.0;
+                                        uy = 1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al1m11)
+                                    {
+                                        ux = 1.0;
+                                        uy = -1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al11m1)
+                                    {
+                                        ux = 1.0;
+                                        uy = 1.0;
+                                        uz = -1.0;
+                                    }
+                                    else if (min_val == alm511)
+                                    {
+                                        ux = -5.0;
+                                        uy = 1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al1m51)
+                                    {
+                                        ux = 1.0;
+                                        uy = -5.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al11m5)
+                                    {
+                                        ux = 1.0;
+                                        uy = 1.0;
+                                        uz = -5.0;
+                                    }
+                                    else if (min_val == al511)
+                                    {
+                                        ux = 5.0;
+                                        uy = 1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al15m1)
+                                    {
+                                        ux = 1.0;
+                                        uy = 5.0;
+                                        uz = -1.0;
+                                    }
+                                    else if (min_val == al1m15)
+                                    {
+                                        ux = 1.0;
+                                        uy = -1.0;
+                                        uz = 5.0;
+                                    }
+                                    else if (min_val == al51m1)
+                                    {
+                                        ux = 5.0;
+                                        uy = 1.0;
+                                        uz = -1.0;
+                                    }
+                                    else if (min_val == al151)
+                                    {
+                                        ux = 1.0;
+                                        uy = 5.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == alm115)
+                                    {
+                                        ux = -1.0;
+                                        uy = 1.0;
+                                        uz = 5.0;
+                                    }
+                                    else if (min_val == al5m11)
+                                    {
+                                        ux = 5.0;
+                                        uy = -1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == alm151)
+                                    {
+                                        ux = -1.0;
+                                        uy = 5.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al115)
+                                    {
+                                        ux = 1.0;
+                                        uy = 1.0;
+                                        uz = 5.0;
+                                    }
+
+                                    uu = ux * ux + uy * uy + uz * uz;
 
                                     al = acos((nx * ux + ny * uy + nz * uz) / sqrt(uu));
                                     alm = acos(sqrt((1.0 + rp0 * rp0 * (1.0 - tan(al0) * tan(al0))) / (1.0 + tan(al0) * tan(al0))));
@@ -672,6 +766,151 @@ int main(int argc, char *argv[])
                                     nx = phidx / phiabs;
                                     ny = phidy / phiabs;
                                     nz = phidz / phiabs;
+
+                                    al111 = acos(fabs(nx + ny + nz) / sqrt(3.0));
+                                    alm111 = acos(fabs(-nx + ny + nz) / sqrt(3.0));
+                                    al1m11 = acos(fabs(nx - ny + nz) / sqrt(3.0));
+                                    al11m1 = acos(fabs(nx + ny - nz) / sqrt(3.0));
+
+                                    alm511 = acos(fabs(-5.0 * nx + ny + nz) / sqrt(27.0));
+                                    al1m51 = acos(fabs(nx - 5.0 * ny + nz) / sqrt(27.0));
+                                    al11m5 = acos(fabs(nx + ny - 5.0 * nz) / sqrt(27.0));
+
+                                    al511 = acos(fabs(5.0 * nx + ny + nz) / sqrt(27.0));
+                                    al15m1 = acos(fabs(nx + 5.0 * ny - nz) / sqrt(27.0));
+                                    al1m15 = acos(fabs(nx - ny + 5.0 * nz) / sqrt(27.0));
+                                    al51m1 = acos(fabs(5.0 * nx + ny - nz) / sqrt(27.0));
+                                    al151 = acos(fabs(nx + 5.0 * ny + nz) / sqrt(27.0));
+                                    alm115 = acos(fabs(-nx + ny + 5.0 * nz) / sqrt(27.0));
+                                    al5m11 = acos(fabs(5.0 * nx - ny + nz) / sqrt(27.0));
+                                    alm151 = acos(fabs(-nx + 5.0 * ny + nz) / sqrt(27.0));
+                                    al115 = acos(fabs(nx + ny + 5.0 * nz) / sqrt(27.0));
+
+                                    double arrkk[16];
+                                    arrkk[0] = al111;
+                                    arrkk[1] = alm111;
+                                    arrkk[2] = al1m11;
+                                    arrkk[3] = al11m1;
+                                    arrkk[4] = alm511;
+                                    arrkk[5] = al1m51;
+                                    arrkk[6] = al11m5;
+                                    arrkk[7] = al511;
+                                    arrkk[8] = al15m1;
+                                    arrkk[9] = al1m15;
+                                    arrkk[10] = al51m1;
+                                    arrkk[11] = al151;
+                                    arrkk[12] = alm115;
+                                    arrkk[13] = al5m11;
+                                    arrkk[14] = alm151;
+                                    arrkk[15] = al115;
+
+                                    min_val = arrkk[0];
+                                    for (l = 1; l <= 15; l++)
+                                    {
+                                        if (min_val > arrkk[l])
+                                        {
+                                            min_val = arrkk[l];
+                                        }
+                                    }
+
+                                    if (min_val == al111)
+                                    {
+                                        ux = 1.0;
+                                        uy = 1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == alm111)
+                                    {
+                                        ux = -1.0;
+                                        uy = 1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al1m11)
+                                    {
+                                        ux = 1.0;
+                                        uy = -1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al11m1)
+                                    {
+                                        ux = 1.0;
+                                        uy = 1.0;
+                                        uz = -1.0;
+                                    }
+                                    else if (min_val == alm511)
+                                    {
+                                        ux = -5.0;
+                                        uy = 1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al1m51)
+                                    {
+                                        ux = 1.0;
+                                        uy = -5.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al11m5)
+                                    {
+                                        ux = 1.0;
+                                        uy = 1.0;
+                                        uz = -5.0;
+                                    }
+                                    else if (min_val == al511)
+                                    {
+                                        ux = 5.0;
+                                        uy = 1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al15m1)
+                                    {
+                                        ux = 1.0;
+                                        uy = 5.0;
+                                        uz = -1.0;
+                                    }
+                                    else if (min_val == al1m15)
+                                    {
+                                        ux = 1.0;
+                                        uy = -1.0;
+                                        uz = 5.0;
+                                    }
+                                    else if (min_val == al51m1)
+                                    {
+                                        ux = 5.0;
+                                        uy = 1.0;
+                                        uz = -1.0;
+                                    }
+                                    else if (min_val == al151)
+                                    {
+                                        ux = 1.0;
+                                        uy = 5.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == alm115)
+                                    {
+                                        ux = 1.0;
+                                        uy = 1.0;
+                                        uz = 5.0;
+                                    }
+                                    else if (min_val == al5m11)
+                                    {
+                                        ux = 5.0;
+                                        uy = -1.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == alm151)
+                                    {
+                                        ux = -1.0;
+                                        uy = 5.0;
+                                        uz = 1.0;
+                                    }
+                                    else if (min_val == al115)
+                                    {
+                                        ux = 1.0;
+                                        uy = 1.0;
+                                        uz = 5.0;
+                                    }
+
+                                    uu = ux * ux + uy * uy + uz * uz;
 
                                     al = acos((nx * ux + ny * uy + nz * uz) / sqrt(uu));
                                     alm = acos(sqrt((1.0 + rp0 * rp0 * (1.0 - tan(al0) * tan(al0))) / (1.0 + tan(al0) * tan(al0))));
@@ -825,14 +1064,6 @@ int main(int argc, char *argv[])
                                 arr[13] = al5m11;
                                 arr[14] = alm151;
                                 arr[15] = al115;
-
-                                for (l = 1; l <= 15; l++)
-                                {
-                                    if (arr[l] >= PI / 2.0)
-                                    {
-                                        arr[l] = PI - arr[l];
-                                    }
-                                }
 
                                 min_val = arr[0];
                                 for (l = 1; l <= 15; l++)
