@@ -182,3 +182,18 @@ nxx = phidx * phidxx / nx / phiabs2 - pow(phidx, 2.0) * dphiabs2dx / 2.0 / nx / 
 //         termz = ep * ep * phidzz + 2.0 * ep * epdz * phidz + ep * epdz * dphiabs2dz + ep * epdphizdz * phiabs2 + epdz * epdphiz * phiabs2;
 
 //         termjjkk = termx + termy + termz;
+
+
+th0 = thij[jj][kk];
+                                    vp0 = vpij[jj][kk];
+                                    eta0 = etaij[jj][kk];
+
+                                    xxp0 = cos(th0) * cos(vp0);
+                                    yxp0 = sin(th0) * cos(vp0);
+                                    zxp0 = sin(vp0);
+                                    xyp0 = -sin(th0) * cos(eta0) - cos(th0) * sin(vp0) * sin(eta0);
+                                    yyp0 = cos(th0) * cos(eta0) - sin(th0) * sin(vp0) * sin(eta0);
+                                    zyp0 = cos(vp0) * sin(eta0);
+                                    xzp0 = sin(eta0) * sin(th0) - cos(eta0) * cos(th0) * sin(vp0);
+                                    yzp0 = -sin(eta0) * cos(th0) - cos(eta0) * sin(th0) * sin(vp0);
+                                    zzp0 = cos(eta0) * cos(vp0);
