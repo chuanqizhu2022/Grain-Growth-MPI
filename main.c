@@ -19,6 +19,7 @@
 #define NONE 0
 #define DONE 4
 #define MASTER 0
+#define FN 16
 
 int ndx = NDX;
 int ndy = NDY;
@@ -37,10 +38,10 @@ double fij[N][N];
 double thij[N][N];
 double vpij[N][N];
 double etaij[N][N];
-double face[16][3];
+double face[FN][3];
 int phinum;
 double th, vp, eta;
-double th0, vp0, eta0;
+double thii, vpii, etaii;
 
 int i, j, k, l, ii, jj, kk, ll, it; //整数
 int ip, im, jp, jm, kp, km;         //整数
@@ -57,8 +58,7 @@ double F0;               //粒界移動の駆動力
 double temp;             //温度
 double sum1, sum2, sum3; //各種の和の作業変数
 double pddtt;            //フェーズフィールドの時間変化率
-double phidxii, phidyii, phidzii, phiabsii;
-double nxii, nyii, nzii, alii;
+
 double al111, alm111, al1m11, al11m1;
 double alm511, al1m51, al11m5;
 double al511, al15m1, al1m15, al51m1, al151, alm115, al5m11, alm151, al115;
@@ -76,9 +76,9 @@ double xxp, xyp, xzp;
 double yxp, yyp, yzp;
 double zxp, zyp, zzp;
 
-double xxp0, xyp0, xzp0;
-double yxp0, yyp0, yzp0;
-double zxp0, zyp0, zzp0;
+double xxpii, xypii, xzpii;
+double yxpii, yypii, yzpii;
+double zxpii, zypii, zzpii;
 
 double phidxp, phidyp, phidzp;
 double phidxpx, phidxpy, phidxpz;
@@ -98,6 +98,9 @@ double nypx, nypy, nypz;
 double nzpx, nzpy, nzpz;
 double ux0, uy0, uz0;
 double ux, uy, uz, uu;
+
+double phidxii, phidyii, phidzii, phiabs2ii;
+double nxii, nyii, nzii, alii;
 
 double nxpphix, nypphix, nzpphix;
 double nxpphiy, nypphiy, nzpphiy;
@@ -134,7 +137,7 @@ double t, r0, r;
 //******* メインプログラム ******************************************
 int main(int argc, char *argv[])
 {
-    nstep = 2000;
+    nstep = 1000;
     dtime = 1.0;
     temp = 1000.0;
     L = 2000.0;
@@ -146,6 +149,7 @@ int main(int argc, char *argv[])
     zeta3 = 0.8;
     rp0 = 0.02;
     rp1 = 0.05;
+    del = 5.0;
     al0 = 35.0 / 180.0 * PI;
 
     dx = L / 100 * 1.0e-9;               //差分プロック１辺の長さ(m)
@@ -573,25 +577,6 @@ int main(int argc, char *argv[])
                         ii = (*phiIdx)[n1][i][j][k];
                         pddtt = 0.0;
 
-                        phidxii = ((*phi)[ii][ip][j][k] - (*phi)[ii][im][j][k]) / 2.0 / dx;
-                        phidyii = ((*phi)[ii][i][jp][k] - (*phi)[ii][i][jm][k]) / 2.0 / dx;
-                        phidzii = ((*phi)[ii][i][j][kp] - (*phi)[ii][i][j][km]) / 2.0 / dx;
-                        phiabsii = phidxii * phidxii + phidyii * phidyii + phidzii * phidzii;
-
-                        // thii = thij[ii][jj];
-                        // vpii = vpij[ii][jj];
-                        // etaii = etaij[ii][jj];
-
-                        // xxpii = cos(th) * cos(vp);
-                        // yxpii = sin(th) * cos(vp);
-                        // zxpii = sin(vp);
-                        // xypii = -sin(th) * cos(eta) - cos(th) * sin(vp) * sin(eta);
-                        // yypii = cos(th) * cos(eta) - sin(th) * sin(vp) * sin(eta);
-                        // zypii = cos(vp) * sin(eta);
-                        // xzpii = sin(eta) * sin(th) - cos(eta) * cos(th) * sin(vp);
-                        // yzpii = -sin(eta) * cos(th) - cos(eta) * sin(th) * sin(vp);
-                        // zzpii = cos(eta) * cos(vp);
-
                         for (n2 = 1; n2 <= (*phiNum)[i][j][k]; n2++)
                         {
                             jj = (*phiIdx)[n2][i][j][k];
@@ -622,8 +607,6 @@ int main(int argc, char *argv[])
                                 dphiabs2dz = 2.0 * (phidx * phidxz + phidy * phidyz + phidz * phidzz);
 
                                 phiabs = sqrt(phiabs2);
-
-                                del = 5.0;
 
                                 am = (1.0 + del * sqrt(1.0 + 2.0 * rp0 * rp0) * (1.0 + tan(al0) * tan(al0)));
 
@@ -675,7 +658,7 @@ int main(int argc, char *argv[])
                                     nyp = phidyp / phiabs;
                                     nzp = phidzp / phiabs;
 
-                                    for (l = 0; l <= 3; l++)
+                                    for (l = 0; l < FN; l++)
                                     {
 
                                         ux = face[l][0];
@@ -861,7 +844,7 @@ int main(int argc, char *argv[])
                                     nyp = phidyp / phiabs;
                                     nzp = phidzp / phiabs;
 
-                                    for (l = 0; l <= 3; l++)
+                                    for (l = 0; l < FN; l++)
                                     {
                                         ux = face[l][0];
                                         uy = face[l][1];
@@ -1001,76 +984,81 @@ int main(int argc, char *argv[])
                                 sum1 += 0.5 * (termiikk - termjjkk) + (wij[ii][kk] - wij[jj][kk]) * (*phi)[kk][i][j][k];
                                 // sum1 += 0.5 * (aij[ii][kk] - aij[jj][kk]) * ((*phi)[kk][ip][j][k] + (*phi)[kk][im][j][k] + (*phi)[kk][i][jp][k] + (*phi)[kk][i][jm][k] + (*phi)[kk][i][j][kp] + (*phi)[kk][i][j][km] - 6.0 * (*phi)[kk][i][j][k]) + (wij[ii][kk] - wij[jj][kk]) * (*phi)[kk][i][j][k]; //[式(4.31)の一部]
                             }
-                            // if ((ii + jj) == 3)
-                            // {
-                            //     nxii = phidxii / sqrt(phiabsii);
-                            //     nyii = phidyii / sqrt(phiabsii);
-                            //     nzii = phidzii / sqrt(phiabsii);
 
-                            //     al111 = acos(fabs(nxii + nyii + nzii) / sqrt(3.0));
-                            //     alm111 = acos(fabs(-nxii + nyii + nzii) / sqrt(3.0));
-                            //     al1m11 = acos(fabs(nxii - nyii + nzii) / sqrt(3.0));
-                            //     al11m1 = acos(fabs(nxii + nyii - nzii) / sqrt(3.0));
+                            phidxii = ((*phi)[ii][ip][j][k] - (*phi)[ii][im][j][k]) / 2.0;
+                            phidyii = ((*phi)[ii][i][jp][k] - (*phi)[ii][i][jm][k]) / 2.0;
+                            phidzii = ((*phi)[ii][i][j][kp] - (*phi)[ii][i][j][km]) / 2.0;
+                            phiabs2ii = phidxii * phidxii + phidyii * phidyii + phidzii * phidzii;
+                            if ((ii + jj) == 3 && phiabs2ii != 0.0)
+                            {
+                                thii = thij[ii][jj];
+                                vpii = vpij[ii][jj];
+                                etaii = etaij[ii][jj];
 
-                            //     alm511 = acos(fabs(-5.0 * nxii + nyii + nzii) / sqrt(27.0));
-                            //     al1m51 = acos(fabs(nxii - 5.0 * nyii + nzii) / sqrt(27.0));
-                            //     al11m5 = acos(fabs(nxii + nyii - 5.0 * nzii) / sqrt(27.0));
+                                xxpii = cos(thii) * cos(vpii);
+                                yxpii = sin(thii) * cos(vpii);
+                                zxpii = sin(vpii);
+                                xypii = -sin(thii) * cos(etaii) - cos(thii) * sin(vpii) * sin(etaii);
+                                yypii = cos(thii) * cos(etaii) - sin(thii) * sin(vpii) * sin(etaii);
+                                zypii = cos(vpii) * sin(etaii);
+                                xzpii = sin(etaii) * sin(thii) - cos(etaii) * cos(thii) * sin(vpii);
+                                yzpii = -sin(etaii) * cos(thii) - cos(etaii) * sin(thii) * sin(vpii);
+                                zzpii = cos(etaii) * cos(vpii);
 
-                            //     al511 = acos(fabs(5.0 * nxii + nyii + nzii) / sqrt(27.0));
-                            //     al15m1 = acos(fabs(nxii + 5.0 * nyii - nzii) / sqrt(27.0));
-                            //     al1m15 = acos(fabs(nxii - nyii + 5.0 * nzii) / sqrt(27.0));
-                            //     al51m1 = acos(fabs(5.0 * nxii + nyii - nzii) / sqrt(27.0));
-                            //     al151 = acos(fabs(nxii + 5.0 * nyii + nzii) / sqrt(27.0));
-                            //     alm115 = acos(fabs(-nxii + nyii + 5.0 * nzii) / sqrt(27.0));
-                            //     al5m11 = acos(fabs(5.0 * nxii - nyii + nzii) / sqrt(27.0));
-                            //     alm151 = acos(fabs(-nxii + 5.0 * nyii + nzii) / sqrt(27.0));
-                            //     al115 = acos(fabs(nxii + nyii + 5.0 * nzii) / sqrt(27.0));
+                                nxii = phidxii / sqrt(phiabs2ii);
+                                nyii = phidyii / sqrt(phiabs2ii);
+                                nzii = phidzii / sqrt(phiabs2ii);
 
-                            //     double arr[16];
-                            //     arr[0] = al111;
-                            //     arr[1] = alm111;
-                            //     arr[2] = al1m11;
-                            //     arr[3] = al11m1;
-                            //     arr[4] = alm511;
-                            //     arr[5] = al1m51;
-                            //     arr[6] = al11m5;
-                            //     arr[7] = al511;
-                            //     arr[8] = al15m1;
-                            //     arr[9] = al1m15;
-                            //     arr[10] = al51m1;
-                            //     arr[11] = al151;
-                            //     arr[12] = alm115;
-                            //     arr[13] = al5m11;
-                            //     arr[14] = alm151;
-                            //     arr[15] = al115;
+                                for (l = 0; l < FN; l++)
+                                {
+                                    ux0 = face[l][0];
+                                    uy0 = face[l][1];
+                                    uz0 = face[l][2];
 
-                            //     min_val = arr[0];
-                            //     for (l = 1; l <= 15; l++)
-                            //     {
-                            //         if (min_val > arr[l])
-                            //         {
-                            //             min_val = arr[l];
-                            //         }
-                            //     }
+                                    ux = ux0 * xxpii + uy0 * yxpii + uz0 * zxpii;
+                                    uy = ux0 * xypii + uy0 * yypii + uz0 * zypii;
+                                    uz = ux0 * xzpii + uy0 * yzpii + uz0 * zzpii;
 
-                            //     if (min_val == al111)
-                            //     {
-                            //         miijj = mij[ii][jj] * (zeta1 + (1 - zeta1) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
-                            //     }
-                            //     if ((min_val == alm111) || (min_val == al1m11) || (min_val == al11m1) || (min_val == alm511) || (min_val == al1m51) || (min_val == al11m5))
-                            //     {
-                            //         miijj = mij[ii][jj] * (zeta2 + (1 - zeta2) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
-                            //     }
-                            //     if ((min_val == al511) || (min_val == al15m1) || (min_val == al1m15) || (min_val == al51m1) || (min_val == al151) || (min_val == alm115) || (min_val == al5m11) || (min_val == alm151) || (min_val == al115))
-                            //     {
-                            //         miijj = mij[ii][jj] * (zeta3 + (1 - zeta3) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
-                            //     }
-                            // }
-                            // else
-                            // {
-                            //     miijj = mij[ii][jj];
-                            // }
-                            miijj = mij[ii][jj];
+                                    uu = ux * ux + uy * uy + uz * uz;
+                                    al = acos(fabs(nxii * ux + nyii * uy + nzii * uz) / sqrt(uu));
+
+                                    if (l == 0)
+                                    {
+                                        min_val = al;
+                                        min_idx = l;
+                                    }
+                                    else
+                                    {
+                                        if (min_val > al)
+                                        {
+                                            min_val = al;
+                                            min_idx = l;
+                                        }
+                                    }
+                                }
+
+                                if (min_idx == 0 && min_val < PI / 2.0)
+                                {
+                                    miijj = mij[ii][jj] * (zeta1 + (1 - zeta1) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
+                                }
+                                else if (min_idx <= 6 && min_val < PI / 2.0)
+                                {
+                                    miijj = mij[ii][jj] * (zeta2 + (1 - zeta2) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
+                                }
+                                else if (min_idx >= 7 && min_val < PI / 2.0)
+                                {
+                                    miijj = mij[ii][jj] * (zeta3 + (1 - zeta3) * sqrt(pow(tan(min_val), 2.0) + rp1 * rp1) * tanh(1.0 / sqrt(pow(tan(min_val), 2.0) + rp1 * rp1)));
+                                }
+                                else
+                                {
+                                    miijj = mij[ii][jj];
+                                }
+                            }
+                            else
+                            {
+                                miijj = mij[ii][jj];
+                            }
+                            // miijj = mij[ii][jj];
                             pddtt += -2.0 * miijj / (double)((*phiNum)[i][j][k]) * (sum1 - 8.0 / PI * fij[ii][jj] * sqrt((*phi)[ii][i][j][k] * (*phi)[jj][i][j][k]));
                             //フェーズフィールドの発展方程式[式(4.31)]
                         }
